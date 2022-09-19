@@ -1,0 +1,5 @@
+package verysmartdog
+
+func main() {
+
+}
