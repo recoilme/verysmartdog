@@ -10,6 +10,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
@@ -28,10 +29,39 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
+func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			tokenC, err := c.Cookie("t")
+			if err != nil || tokenC == nil {
+				if c.Request().URL.String() == "/" {
+					log.Println("redirect", fmt.Sprintf("%+v", c.Request().URL))
+					return c.Redirect(307, "frontpage")
+				}
+			} else {
+				// set the user token to header
+				c.Request().Header.Set("Authorization", "User "+tokenC.Value)
+			}
+			return next(c)
+		}
+	}
+}
+
 func main() {
 	app := pocketbase.New()
 
+	//app.OnUserAfterCreateRequest().Add(func(e *core.UserCreateEvent) error {
+	//	log.Println(e.User.Email)
+	//	return nil
+	//})
+
+	//app.OnUserAuthRequest().Add(func(e *core.UserAuthEvent) error {
+	//	log.Println(e.Token)
+	//	return nil
+	//})
+
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.Pre(customAuthMiddleware(app))
 		e.Router.Renderer = &TemplateRegistry{
 			templates: template.Must(template.ParseGlob("web_data/view/*.html")),
 		}
@@ -40,10 +70,28 @@ func main() {
 		e.Router.Static("/img", "web_data/img")
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
-			Path:   "",
+			Path:   "/",
 			Handler: func(c echo.Context) error {
+				//log.Print(fmt.Sprintf("%+v\n", c))
+				user, _ := c.Get(apis.ContextUserKey).(*models.User)
+				log.Println("user", user.Profile.Data()["name"])
+				return c.Render(http.StatusOK, "main.html", user.Profile.Data())
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrUserAuth(),
+			},
+		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "frontpage",
+			Handler: func(c echo.Context) error {
+				log.Print(fmt.Sprintf("%+v\n", c))
+
 				// https://github.com/BulmaTemplates/bulma-templates/blob/master/templates/landing.html
 				return c.Render(http.StatusOK, "frontpage.html", nil)
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireGuestOnly(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{

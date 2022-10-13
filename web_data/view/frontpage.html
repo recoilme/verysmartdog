@@ -13,9 +13,12 @@
     <!-- Bulma Version 0.9.0-->
     <link rel="stylesheet" href="https://unpkg.com/bulma@0.9.0/css/bulma.min.css" />
     <link rel="stylesheet" type="text/css" href="css/frontpage.css">
+    <script type="text/javascript" src="js/pocketbase.umd.js"></script>
+    <script type="text/javascript" src="js/auth.js"></script>
 </head>
 
 <body>
+    <script async type="text/javascript" src="js/frontpage.js"></script>
     <section class="hero is-info is-fullheight">
         <div class="hero-head">
             <nav class="navbar">
@@ -54,13 +57,15 @@
                         <h1 class="title">
                                 Simple service for monitoring rss feeds by keywords with reposting in telegram
                         </h1>
-                        <script async src="https://telegram.org/js/telegram-widget.js?19" data-telegram-login="verysmartdogbot" data-size="large" data-auth-url="auth_tg_signup" data-request-access="write"></script>
+
+                        <script async src="https://telegram.org/js/telegram-widget.js?21" data-telegram-login="verysmartdogbot" 
+                            data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+
                     </div>
                 </div>
             </div>
 
     </section>
-    <script async type="text/javascript" src="js/frontpage.js"></script>
 </body>
 
 </html>
