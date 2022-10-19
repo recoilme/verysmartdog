@@ -36,6 +36,7 @@ func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {
 					log.Println("redirect", fmt.Sprintf("%+v", c.Request().URL))
+					//next(c)
 					return c.Redirect(307, "frontpage")
 				}
 			} else {
@@ -83,7 +84,7 @@ func main() {
 		})
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
-			Path:   "frontpage",
+			Path:   "/frontpage",
 			Handler: func(c echo.Context) error {
 				log.Print(fmt.Sprintf("%+v\n", c))
 
