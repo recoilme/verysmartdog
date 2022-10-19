@@ -1,0 +1,21 @@
+{{define "top"}}
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>VerySmart &bull; Dog</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="css/output.css" rel="stylesheet">
+    <script>
+        try {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark')
+            } else {
+                document.documentElement.classList.remove('dark')
+            }
+        } catch (_) { }
+    </script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+{{end}}
