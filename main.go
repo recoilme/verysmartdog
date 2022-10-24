@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
@@ -32,16 +34,18 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			log.Print(fmt.Sprintf("%+v\n", c.Request().URL.String()))
 			tokenC, err := c.Cookie("t")
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {
-					log.Println("redirect", fmt.Sprintf("%+v", c.Request().URL))
 					//next(c)
 					return c.Redirect(307, "frontpage")
 				}
 			} else {
-				// set the user token to header
-				c.Request().Header.Set("Authorization", "User "+tokenC.Value)
+				// set the user token to header for not admin urls
+				if !strings.HasPrefix(c.Request().URL.String(), "/_/") || !strings.HasPrefix(c.Request().URL.String(), "api/admins") {
+					c.Request().Header.Set("Authorization", "User "+tokenC.Value)
+				}
 			}
 			return next(c)
 		}
@@ -75,7 +79,6 @@ func main() {
 			Handler: func(c echo.Context) error {
 				//log.Print(fmt.Sprintf("%+v\n", c))
 				user, _ := c.Get(apis.ContextUserKey).(*models.User)
-				log.Println("user", user.Profile.Data()["name"])
 				return c.Render(http.StatusOK, "main.html", user.Profile.Data())
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -86,13 +89,30 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/frontpage",
 			Handler: func(c echo.Context) error {
-				log.Print(fmt.Sprintf("%+v\n", c))
+				//log.Print(fmt.Sprintf("%+v\n", c))
 
 				// https://github.com/BulmaTemplates/bulma-templates/blob/master/templates/landing.html
 				return c.Render(http.StatusOK, "frontpage.html", nil)
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireGuestOnly(),
+			},
+		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "/logout",
+			Handler: func(c echo.Context) error {
+
+				cookie := new(http.Cookie)
+				cookie.Name = "t"
+				cookie.Value = ""
+				cookie.Expires = time.Now().Add((-1) * time.Second)
+				c.SetCookie(cookie)
+
+				return c.Redirect(307, "/")
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrUserAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
