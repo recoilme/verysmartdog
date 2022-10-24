@@ -1,29 +1,39 @@
 {{define "top"}}
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>very &bull; smart</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="img/fav_icon.svg" type=" image/svg+xml" />
-    <link href="css/output.css" rel="stylesheet" />
-    <script>
-      try {
-        if (
-          localStorage.theme === "dark" ||
-          (!("theme" in localStorage) &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches)
-        ) {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
-      } catch (_) {}
-    </script>
-    <script
-      defer
-      src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
-    ></script>
-  </head>
-  {{end}}
-</html>
+<html lang="en">
+<head>
+  <!-- Required Meta Tags Always Come First -->
+  <meta charset="utf-8">
+  <meta name="robots" content="max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <link rel="canonical" href="">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+
+  <meta name="twitter:site" content="@">
+  <meta name="twitter:creator" content="@">
+  <meta name="twitter:card" content="">
+  <meta name="twitter:title" content="very &bull; smart">
+  <meta name="twitter:description" content="">
+  <meta name="twitter:image" content="">
+
+  <meta property="og:url" content="">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="verysmart.dog">
+  <meta property="og:title" content="very &bull; smart">
+  <meta property="og:description" content="">
+  <meta property="og:image" content="">
+
+  <!-- Title -->
+  <title>very &bull; smart</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="img/fav_icon.svg" type=" image/svg+xml" />
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS HS -->
+  <link rel="stylesheet" href="css/main.min.css">
+</head>
+{{end}}
