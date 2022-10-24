@@ -4,6 +4,7 @@
  - use go 1.19 (1.18 must work to)
  - go build -o vsd && ./vsd serve --debug
  - admin ui http://127.0.0.1:8090/_/
+ - live reload with air (https://github.com/cosmtrek/air): air
 
  ## Redirect from 80 to 8090 port (for telegram auth)
 `socat TCP-LISTEN:80,fork TCP:127.0.0.1:8090`
