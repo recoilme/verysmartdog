@@ -72,6 +72,7 @@ func main() {
 		e.Router.Static("/css", "web_data/css")
 		e.Router.Static("/js", "web_data/js")
 		e.Router.Static("/img", "web_data/img")
+		e.Router.HTTPErrorHandler = customHTTPErrorHandler
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
 			Path:   "/",
@@ -156,4 +157,14 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func customHTTPErrorHandler(c echo.Context, err error) {
+	code := http.StatusInternalServerError
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+	}
+	log.Print(err)
+	c.Render(code, "404.html", nil)
+
 }
