@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -43,9 +42,9 @@ func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 				}
 			} else {
 				// set the user token to header for not admin urls
-				if !strings.HasPrefix(c.Request().URL.String(), "/_/") || !strings.HasPrefix(c.Request().URL.String(), "api/admins") {
-					c.Request().Header.Set("Authorization", "User "+tokenC.Value)
-				}
+				//if !strings.HasPrefix(c.Request().URL.String(), "/_/") || !strings.HasPrefix(c.Request().URL.String(), "api/admins") {
+				c.Request().Header.Set("Authorization", "User "+tokenC.Value)
+				//}
 			}
 			return next(c)
 		}
