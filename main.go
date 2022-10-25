@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -72,13 +73,12 @@ func main() {
 		e.Router.Static("/css", "web_data/css")
 		e.Router.Static("/js", "web_data/js")
 		e.Router.Static("/img", "web_data/img")
+		e.Router.HTTPErrorHandler = customHTTPErrorHandler
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
 			Path:   "/",
 			Handler: func(c echo.Context) error {
-				//log.Print(fmt.Sprintf("%+v\n", c))
-				user, _ := c.Get(apis.ContextUserKey).(*models.User)
-				return c.Render(http.StatusOK, "main.html", user.Profile.Data())
+				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireAdminOrUserAuth(),
@@ -88,13 +88,35 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/frontpage",
 			Handler: func(c echo.Context) error {
-				//log.Print(fmt.Sprintf("%+v\n", c))
-
-				// https://github.com/BulmaTemplates/bulma-templates/blob/master/templates/landing.html
 				return c.Render(http.StatusOK, "frontpage.html", nil)
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireGuestOnly(),
+			},
+		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "/newfeed",
+			Handler: func(c echo.Context) error {
+				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrUserAuth(),
+			},
+		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodPost,
+			Path:   "/newfeed",
+			Handler: func(c echo.Context) error {
+				log.Println(fmt.Sprintf("post:%+v\n", c))
+				link := c.FormValue("link")
+				log.Println("link", link)
+				return c.JSON(http.StatusOK, link)
+				//return c.String(http.StatusOK, link)
+				//return c.Render(http.StatusOK, "newfeed.html", siteData(c))
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrUserAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -156,4 +178,28 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func customHTTPErrorHandler(c echo.Context, err error) {
+	code := http.StatusInternalServerError
+	if he, ok := err.(*echo.HTTPError); ok {
+		code = he.Code
+	}
+	m := map[string]string{}
+	m["code"] = strconv.Itoa(code)
+	m["msg"] = err.Error()
+	log.Print(err)
+	c.Render(code, "404.html", m)
+
+}
+
+func siteData(c echo.Context) (siteData map[string]string) {
+	siteData = map[string]string{}
+	user, _ := c.Get(apis.ContextUserKey).(*models.User)
+	siteData["photo_url"] = user.Profile.Data()["photo_url"].(string)
+	siteData["name"] = user.Profile.Data()["name"].(string)
+	siteData["userId"] = user.Id
+	siteData["path"] = c.Request().URL.String()
+	//log.Println(fmt.Sprintf("%+v", siteData))
+	return siteData
 }
