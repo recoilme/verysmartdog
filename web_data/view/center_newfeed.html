@@ -17,7 +17,7 @@
       </button>
     </form>
 
-    <section id="cards_section" class="cards_section"></section>
+    <section id="cards_section" class="cards_section">
     <template class="card__tmpl" id="card__tmpl">
       
       <div id="card__item" class="card__item mt-4 flex flex-col bg-white border shadow-sm rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]">
@@ -54,8 +54,6 @@
             }
         });
     }
-    const client = new PocketBase('http://127.0.0.1:80');
-  
   
     function newFeed() {
       console.log('newFeed');

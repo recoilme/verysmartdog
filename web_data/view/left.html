@@ -21,7 +21,9 @@
           </svg>
         </li>
         <li class="text-sm font-semibold text-gray-800 truncate dark:text-gray-400" aria-current="page">
-          Dashboard
+          {{ if eq .path "/" }}Dashboard{{ end }}
+          {{ if eq .path "/newfeed" }}New feed{{ end }}
+          {{ if eq .path "/feed" }}{{.feedname}}{{ end }}
         </li>
       </ol>
       <!-- End Breadcrumb -->
@@ -34,7 +36,7 @@
     <div class="px-6">
       <a class="flex-none text-xl font-semibold dark:text-white" href="/" aria-label="Brand">
       <div class="flex items-center">
-        <img src="img/fav_icon.svg" class="w-6 h-6" />
+        <img src="/img/fav_icon.svg" class="w-8 h-8" />
         <p
           class="ml-2 text-xl font-semibold text-slate-700 dark:text-slate-200"
         >
@@ -58,7 +60,7 @@
 
         <li>
 
-          <a class='{{ if eq .path "/newfeed" }}dark:bg-gray-900 bg-gray-100 {{ end }} flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="newfeed">
+          <a class='{{ if eq .path "/newfeed" }}dark:bg-gray-900 bg-gray-100 {{ end }} flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="/newfeed">
             <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z" />
             </svg>
@@ -66,6 +68,7 @@
           </a>
         </li>
 
+        <!--
         <li class="hs-accordion" id="account-accordion">
           <a class="hs-accordion-toggle flex items-center gap-x-3.5 py-2 px-2.5 hs-accordion-active:text-blue-600 hs-accordion-active:hover:bg-transparent text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300 dark:hs-accordion-active:text-white" href="javascript:;">
             <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -103,9 +106,55 @@
             </ul>
           </div>
         </li>
-
+        -->
+        <section id="left_dom_sect">
+        <template id="left_dom_tmpl">
+        <li id="left_dom_item">
+          <a id="dom_href" class='flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="javascript:;">
+            <img class="grayscale hover:grayscale-0 inline-block w-4 h-4 mt-0.5" src="https://vc.ru/static/build/vc.ru/favicons/apple-touch-icon-180x180.png" alt="">
+            <div id="dom_name">vc.ru</div>
+          </a>
+        </li>
+        </template>
+        </section>
       </ul>
     </nav>
   </div>
   <!-- End Sidebar -->
+
+  <script>
+   
+    const dom_template = document.querySelector('#left_dom_tmpl');
+    const dom_section = document.querySelector('#left_dom_sect');
+    function renderDom() {
+      //console.log('renderFeeds',cards_template,cards_section);
+      client.records.getList('domain', 1, 10).then((result) =>{
+        // success...
+        result.items.forEach((n, i) => {
+          // Get or create a new item
+          let el = dom_template.content.querySelector('#left_dom_item');
+          if (!el) {
+            el = document.importNode(dom_template.content, true).querySelector('#left_dom_item');
+          }
+          dom_section.appendChild(el);
+          el.querySelector('a').href = "javascript:loadFeed('"+n.id+"','"+n.name+"');";
+          el.setAttribute( 'class',"'"+n.name+"'");
+          //res = el.setAttribute( 'class', ' \{\{ if eq .feedname "' +n.name+ '"\}\}dark:bg-gray-900 bg-gray-100 \{\{ end \}\}' );
+          
+          el.querySelector('img').src = n.icon;
+          el.querySelector('#dom_name').innerText = n.name;
+        });
+      }).catch((error) =>{
+        // error...
+        console.log('Error renderDom:', error);
+      });
+    }
+
+    function loadFeed(id,name) {
+      document.location.href='/feed/'+id+'/'+name;
+    }
+  
+    renderDom();
+    
+  </script>
 {{end}}
