@@ -19,11 +19,13 @@ async function load(tgUser) {
             'passwordConfirm': '123456'+tgUser.username,
         });
     } catch (e) {
+        errAuth = 42;
+        /*
         if (e.data.data.email.code=="validation_user_email_exists") {
             errAuth = 42;
         } else {
             errAuth = 43;
-        }
+        }*/
     }
     if (errAuth == 42 || errAuth == 0) {
         // user authentication via email/pass
