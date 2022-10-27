@@ -2,3 +2,6 @@
 verysmartdog
 vsd
 tmp
+logs.db-wal
+logs.db-shm
+logs.db

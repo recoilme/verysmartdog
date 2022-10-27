@@ -114,8 +114,6 @@ func main() {
 				link := c.FormValue("link")
 				log.Println("link", link)
 				return c.JSON(http.StatusOK, link)
-				//return c.String(http.StatusOK, link)
-				//return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireAdminOrUserAuth(),
@@ -133,6 +131,17 @@ func main() {
 				c.SetCookie(cookie)
 
 				return c.Redirect(307, "/")
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrUserAuth(),
+			},
+		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "/feed/:id/:name",
+			Handler: func(c echo.Context) error {
+				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
+				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireAdminOrUserAuth(),
@@ -214,7 +223,15 @@ func siteData(c echo.Context) (siteData map[string]string) {
 	siteData["photo_url"] = user.Profile.Data()["photo_url"].(string)
 	siteData["name"] = user.Profile.Data()["name"].(string)
 	siteData["userId"] = user.Id
-	siteData["path"] = c.Request().URL.String()
-	//log.Println(fmt.Sprintf("%+v", siteData))
+	feedname := c.PathParams().Get("name", "-")
+	if feedname == "-" {
+		siteData["path"] = c.Request().URL.String()
+		siteData["feedname"] = ""
+	} else {
+		siteData["path"] = "/feed"
+		siteData["feedname"] = feedname
+	}
+
+	log.Println(fmt.Sprintf("siteData:%+v", siteData))
 	return siteData
 }
