@@ -18,6 +18,8 @@ import (
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tools/rest"
 	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/recoilme/verysmartdog/internal/usecase"
+	"github.com/spf13/cobra"
 	"github.com/wesleym/telegramwidget"
 )
 
@@ -184,6 +186,19 @@ func main() {
 
 		return nil
 	})
+
+	app.RootCmd.AddCommand(&cobra.Command{
+		Use: "checkfeeds",
+		Run: func(command *cobra.Command, args []string) {
+			log.Println("Checking feeds started")
+			updater := usecase.NewFeedsUpdater(app.DB())
+			if err := updater.CheckFeeds(1); err != nil {
+				log.Fatal(err)
+			}
+			log.Println("Checking feeds finished")
+		},
+	})
+
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
