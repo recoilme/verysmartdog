@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.5 // indirect
+	github.com/SlyMarbo/rss v1.0.5 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-sdk-go v1.44.85 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.16.11 // indirect
@@ -29,6 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.13 // indirect
 	github.com/aws/smithy-go v1.12.1 // indirect
+	github.com/axgle/mahonia v0.0.0-20180208002826-3358181d7394 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/domodwyer/mailyak/v3 v3.3.4 // indirect
 	github.com/fatih/color v1.13.0 // indirect
