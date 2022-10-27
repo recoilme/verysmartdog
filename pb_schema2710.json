@@ -1,0 +1,385 @@
+[
+  {
+    "id": "systemprofiles0",
+    "name": "profiles",
+    "system": true,
+    "listRule": "userId = @request.user.id",
+    "viewRule": "userId = @request.user.id",
+    "createRule": "userId = @request.user.id",
+    "updateRule": "userId = @request.user.id",
+    "deleteRule": null,
+    "schema": [
+      {
+        "id": "pbfielduser",
+        "name": "userId",
+        "type": "user",
+        "system": true,
+        "required": true,
+        "unique": true,
+        "options": {
+          "maxSelect": 1,
+          "cascadeDelete": true
+        }
+      },
+      {
+        "id": "pbfieldname",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "pbfieldavatar",
+        "name": "avatar",
+        "type": "file",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "maxSize": 5242880,
+          "mimeTypes": [
+            "image/jpg",
+            "image/jpeg",
+            "image/png",
+            "image/svg+xml",
+            "image/gif"
+          ],
+          "thumbs": null
+        }
+      },
+      {
+        "id": "w7u9dbhk",
+        "name": "photo_url",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      }
+    ]
+  },
+  {
+    "id": "51lodztkxakfboh",
+    "name": "domain",
+    "system": false,
+    "listRule": "",
+    "viewRule": null,
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      {
+        "id": "hb9kuxjn",
+        "name": "url",
+        "type": "url",
+        "system": false,
+        "required": false,
+        "unique": true,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "2tiqzcct",
+        "name": "host",
+        "type": "url",
+        "system": false,
+        "required": false,
+        "unique": true,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "r0aesbgm",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "n4cx64x1",
+        "name": "title",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "bbbxair0",
+        "name": "descr",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "7uzxmyv7",
+        "name": "icon",
+        "type": "url",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "oippqcym",
+        "name": "lang",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      }
+    ]
+  },
+  {
+    "id": "to82imph7oc7bqi",
+    "name": "feed",
+    "system": false,
+    "listRule": "",
+    "viewRule": null,
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      {
+        "id": "bvk26iyf",
+        "name": "domain_id",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "collectionId": "51lodztkxakfboh",
+          "cascadeDelete": false
+        }
+      },
+      {
+        "id": "l98bchxu",
+        "name": "url",
+        "type": "url",
+        "system": false,
+        "required": false,
+        "unique": true,
+        "options": {
+          "exceptDomains": [],
+          "onlyDomains": []
+        }
+      },
+      {
+        "id": "ohf4fngr",
+        "name": "title",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "kpbnpjgx",
+        "name": "descr",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "iduiheeu",
+        "name": "last_fetch",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "y55wbwgm",
+        "name": "last_error",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "lknrpo8c",
+        "name": "resp_code",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "d6mbq3heomws7j8",
+    "name": "post",
+    "system": false,
+    "listRule": null,
+    "viewRule": null,
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "schema": [
+      {
+        "id": "kyz9t78c",
+        "name": "feed_id",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "collectionId": "to82imph7oc7bqi",
+          "cascadeDelete": false
+        }
+      },
+      {
+        "id": "6n8vvbod",
+        "name": "url",
+        "type": "url",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "jcdaujko",
+        "name": "title",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "6odm08le",
+        "name": "descr",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "30qjjfju",
+        "name": "img",
+        "type": "url",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "exceptDomains": null,
+          "onlyDomains": null
+        }
+      },
+      {
+        "id": "9hpiahga",
+        "name": "sum_html",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "ylir5uwu",
+        "name": "sum_txt",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "btktqs4t",
+        "name": "pub_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      }
+    ]
+  }
+]
