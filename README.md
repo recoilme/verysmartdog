@@ -7,6 +7,10 @@
 - admin ui http://127.0.0.1:8090/_/ (open in private window)
 - live reload with air (https://github.com/cosmtrek/air): air
 
+## Update feeds and posts
+
+- ./vsd checkfeeds
+
 ## Redirect from 80 to 8090 port (for telegram auth)
 
 `socat TCP-LISTEN:80,fork TCP:127.0.0.1:8090`
