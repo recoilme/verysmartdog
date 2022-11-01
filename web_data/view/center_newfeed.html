@@ -2,20 +2,50 @@
 
   <!-- Content -->
   <div class="w-full pt-10 px-4 sm:px-6 md:px-8 lg:pl-72">
-    <!-- server side submit
     <form class="flex flex-row" action='/newfeed' method='post'>
-      <input id="feedText" name="link" type="text" class="rounded-r-none py-3 px-4 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400" placeholder="New rss feed (feed url or domain name)">
+      <input id="feedText" name="link" type="text" class="rounded-r-none py-3 px-4 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400" placeholder="New rss feed (feed url)">
       <button name="add" type="submit" class="rounded-l-none py-3 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800">
         Add
       </button>
     </form>
-    -->
-    <form class="flex flex-row">
-      <input id="feedText" name="link" type="text" class="rounded-r-none py-3 px-4 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400" placeholder="New rss feed (feed url or domain name)">
-      <button onclick="newFeed()" name="add" type="button" class="rounded-l-none py-3 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800">
-        Add
-      </button>
-    </form>
+
+    {{if .err}}
+    <header class="mt-2">
+      <div class="min-h-[15rem] flex flex-col bg-white border shadow-sm rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]">
+        <div class="flex flex-auto flex-col justify-center items-center p-4 md:p-5">
+          <svg class="max-w-[5rem]" viewBox="0 0 375 428" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M254.509 253.872L226.509 226.872" class="stroke-gray-400 dark:stroke-white" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            <path d="M237.219 54.3721C254.387 76.4666 264.609 104.226 264.609 134.372C264.609 206.445 206.182 264.872 134.109 264.872C62.0355 264.872 3.60864 206.445 3.60864 134.372C3.60864 62.2989 62.0355 3.87207 134.109 3.87207C160.463 3.87207 184.993 11.6844 205.509 25.1196" class="stroke-gray-400 dark:stroke-white" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            <rect x="270.524" y="221.872" width="137.404" height="73.2425" rx="36.6212" transform="rotate(40.8596 270.524 221.872)" class="fill-gray-400 dark:fill-white" fill="currentColor"/>
+            <ellipse cx="133.109" cy="404.372" rx="121.5" ry="23.5" class="fill-gray-400 dark:fill-white" fill="currentColor"/>
+            <path d="M111.608 188.872C120.959 177.043 141.18 171.616 156.608 188.872" class="stroke-gray-400 dark:stroke-white" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+            <ellipse cx="96.6084" cy="116.872" rx="9" ry="12" class="fill-gray-400 dark:fill-white" fill="currentColor"/>
+            <ellipse cx="172.608" cy="117.872" rx="9" ry="12" class="fill-gray-400 dark:fill-white" fill="currentColor"/>
+            <path d="M194.339 147.588C189.547 148.866 189.114 142.999 189.728 138.038C189.918 136.501 191.738 135.958 192.749 137.131C196.12 141.047 199.165 146.301 194.339 147.588Z" class="fill-gray-400 dark:fill-white" fill="currentColor"/>
+          </svg>
+          <p class="mt-5 text-sm text-gray-500 dark:text-gray-500">
+            No data to show.<br/> {{.err}}
+          </p>
+        </div>
+      </div>
+    </header>
+    {{end}}
+
+
+    {{range .feeds}}
+      <div id="card__item" class="card__item mt-4 flex flex-col bg-white border shadow-sm rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]">
+        <div class="p-4 md:p-7">
+          <h3 class="card__title text-lg font-bold text-gray-800 dark:text-white">{{.title}}</h3>
+          <p class="card__descr mt-2 text-gray-800 dark:text-gray-400">{{.descr}}</p>
+          <a class="card__link mt-3 inline-flex items-center gap-2 mt-5 text-sm font-medium text-blue-500 hover:text-blue-700" href="">
+            Subscribe
+            <svg class="w-2.5 h-auto" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 1L10.6869 7.16086C10.8637 7.35239 10.8637 7.64761 10.6869 7.83914L5 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    {{end}}
 
     <section id="cards_section" class="cards_section">
     <template class="card__tmpl" id="card__tmpl">
@@ -42,64 +72,4 @@
   <!-- End Content -->
   <!-- ========== END MAIN CONTENT ========== -->
   <div id='sidebar-backdrop' class='hidden transition duration fixed inset-0 z-[47] bg-gray-900 bg-opacity-50 dark:bg-opacity-80'></div>
-
-  <script>
-    PocketBase.prototype.newFeed = function(bodyParams = {}, queryParams = {}) {
-        return this.send("/newfeed", {
-            'method': 'POST',
-            'params': queryParams,
-            'body':   bodyParams,
-            'heades': {
-                // some extra headers...
-            }
-        });
-    }
-  
-    function newFeed() {
-      console.log('newFeed');
-      const formData = new FormData();
-      var
-      feedText,element = document.getElementById('feedText');
-      if (element != null) {
-        feedText = element.value;
-      }
-      formData.append('hello', 'Hello world!');
-      formData.append('link', feedText);
-      client.newFeed(formData,'undefined').then((result) =>{
-        // success...
-        console.log('Result newFeed:', result);
-      }).catch((error) =>{
-        // error...
-        console.log('Error newFeed:', error);
-      });
-    }
-  
-    const cards_template = document.querySelector('#card__tmpl');
-    const cards_section = document.querySelector('#cards_section');
-    function renderFeeds() {
-      //console.log('renderFeeds',cards_template,cards_section);
-      client.records.getList('feed', 1, 10).then((result) =>{
-        // success...
-        //console.log('Result3:', result);
-        result.items.forEach((n, i) => {
-          // Get or create a new item
-          let el = cards_template.content.querySelector('.card__item');
-          //console.log('el',el);
-          if (!el) {
-            el = document.importNode(cards_template.content, true).querySelector('.card__item');
-            //console.log('el2',el);
-            //cards_section.appendChild(el);
-          }
-          cards_section.appendChild(el);
-          el.querySelector('.card__title').innerText = n.title;
-          el.querySelector('.card__descr').innerText = n.descr;
-        });
-      }).catch((error) =>{
-        // error...
-        console.log('Error renderFeeds:', error);
-      });
-    }
-  
-    renderFeeds();
-  </script>
 {{end}}
