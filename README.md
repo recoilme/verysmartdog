@@ -2,9 +2,12 @@
 
 ## Build
 
-- use go 1.19 (1.18 must work to)
+- use go 1.18+
 - go build -o vsd && ./vsd serve --debug
 - admin ui http://127.0.0.1:8090/_/ (open in private window)
+- import pb_shema.json
+- run socat for auth via telegram
+- use admin ui in private window, user in general
 - live reload with air (https://github.com/cosmtrek/air): air
 
 ## Update feeds and posts

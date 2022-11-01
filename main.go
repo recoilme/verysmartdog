@@ -1,12 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 
@@ -14,13 +14,11 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/tools/rest"
-	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/pocketbase/pocketbase/tokens"
 	"github.com/recoilme/verysmartdog/internal/usecase"
+	"github.com/recoilme/verysmartdog/internal/vsd"
 	"github.com/spf13/cobra"
-	"github.com/wesleym/telegramwidget"
 )
 
 // Define the template registry struct
@@ -36,18 +34,14 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			log.Print(fmt.Sprintf("%+v\n", c.Request().URL.String()))
+			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
 			tokenC, err := c.Cookie("t")
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {
-					//next(c)
-					return c.Redirect(307, "frontpage")
+					return c.Redirect(http.StatusTemporaryRedirect, "/frontpage")
 				}
 			} else {
-				// set the user token to header for not admin urls
-				//if !strings.HasPrefix(c.Request().URL.String(), "/_/") || !strings.HasPrefix(c.Request().URL.String(), "api/admins") {
-				c.Request().Header.Set("Authorization", "User "+tokenC.Value)
-				//}
+				c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
 			}
 			return next(c)
 		}
@@ -56,16 +50,6 @@ func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 
 func main() {
 	app := pocketbase.New()
-
-	//app.OnUserAfterCreateRequest().Add(func(e *core.UserCreateEvent) error {
-	//	log.Println(e.User.Email)
-	//	return nil
-	//})
-
-	//app.OnUserAuthRequest().Add(func(e *core.UserAuthEvent) error {
-	//	log.Println(e.Token)
-	//	return nil
-	//})
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		e.Router.Pre(customAuthMiddleware(app))
@@ -83,7 +67,7 @@ func main() {
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrUserAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -100,23 +84,29 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/newfeed",
 			Handler: func(c echo.Context) error {
+				//feeds(c)
+				log.Println("OneTimeErr2", c.Get("OneTimeErr"))
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrUserAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodPost,
 			Path:   "/newfeed",
 			Handler: func(c echo.Context) error {
-				log.Println(fmt.Sprintf("post:%+v\n", c))
 				link := c.FormValue("link")
-				log.Println("link", link)
-				return c.JSON(http.StatusOK, link)
+				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+				feeds, err := vsd.FeedNew(app, link, authRecord.GetId())
+				_ = feeds
+				if err != nil {
+					c.Set("err", err.Error())
+				}
+				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrUserAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -130,10 +120,10 @@ func main() {
 				cookie.Expires = time.Now().Add((-1) * time.Second)
 				c.SetCookie(cookie)
 
-				return c.Redirect(307, "/")
+				return c.Redirect(http.StatusTemporaryRedirect, "/")
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrUserAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -144,43 +134,33 @@ func main() {
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrUserAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
+
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
 			Path:   "/auth_tg_signup",
 			Handler: func(c echo.Context) error {
-				params, paramsErr := url.ParseQuery(c.Request().URL.RawQuery)
-				if paramsErr != nil {
-					return rest.NewBadRequestError("Failed to create user token, bad params", paramsErr)
+				authRecord, err := vsd.AuthTgSignup(app.Dao(), c.Request().URL.RawQuery)
+				if err != nil {
+					return apis.NewBadRequestError("Failed to auth", err)
 				}
-				uData, tgwErr := telegramwidget.ConvertAndVerifyForm(params, string("5537821699:AAFTg_0meVPkMrD-qY8kLSPkH6cXVaXcj1w"))
-				if tgwErr != nil {
-					return rest.NewBadRequestError("Failed to verify user token", tgwErr)
+
+				token, tokenErr := tokens.NewRecordAuthToken(app, authRecord)
+				if tokenErr != nil {
+					return apis.NewBadRequestError("Failed to create auth token.", tokenErr)
 				}
-				//uid := fmt.Sprintf("%d", u.ID)
-				email := fmt.Sprintf("%d@t.me", uData.ID)
-				user, userErr := app.Dao().FindUserByEmail(email)
-				if userErr != nil {
-					// not found user
-					app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
+				cookie := new(http.Cookie)
+				cookie.Name = "t"
+				cookie.Value = token
+				cookie.Expires = time.Now().Add(400 * 24 * time.Hour)
+				c.SetCookie(cookie)
 
-						user = &models.User{}
-						user.Verified = false
-						user.Email = email
-						user.SetPassword(security.RandomString(30))
-
-						// create the new user
-						if err := txDao.SaveUser(user); err != nil {
-							return err
-						}
-
-						return nil
-					})
-				}
-				_ = user
-				return c.Render(http.StatusOK, "frontpage.html", nil)
+				return c.Redirect(307, "/")
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireGuestOnly(),
 			},
 		})
 
@@ -217,12 +197,13 @@ func customHTTPErrorHandler(c echo.Context, err error) {
 
 }
 
-func siteData(c echo.Context) (siteData map[string]string) {
-	siteData = map[string]string{}
-	user, _ := c.Get(apis.ContextUserKey).(*models.User)
-	siteData["photo_url"] = user.Profile.Data()["photo_url"].(string)
-	siteData["name"] = user.Profile.Data()["name"].(string)
-	siteData["userId"] = user.Id
+func siteData(c echo.Context) (siteData map[string]interface{}) {
+	siteData = map[string]interface{}{}
+	authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+
+	siteData["photo_url"] = authRecord.GetString("photo_url")
+	siteData["name"] = authRecord.GetString("username")
+	siteData["userId"] = authRecord.GetId()
 	feedname := c.PathParams().Get("name", "-")
 	if feedname == "-" {
 		siteData["path"] = c.Request().URL.String()
@@ -231,7 +212,26 @@ func siteData(c echo.Context) (siteData map[string]string) {
 		siteData["path"] = "/feed"
 		siteData["feedname"] = feedname
 	}
+	siteData["feeds"] = c.Get("feeds")
+	siteData["err"] = c.Get("err")
 
 	log.Println(fmt.Sprintf("siteData:%+v", siteData))
+
 	return siteData
+}
+
+func feeds(c echo.Context) {
+
+	resp, err := http.Get("http://127.0.0.1:8090/api/collections/feed/records?page=1&perPage=10")
+	if err != nil {
+		log.Println("Err:", err)
+		return
+	}
+	result := map[string]interface{}{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		log.Println("Err:", err)
+		return
+	}
+	c.Set("feeds", result["items"])
 }
