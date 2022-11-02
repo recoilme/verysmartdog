@@ -35,8 +35,8 @@
     {{range .feeds}}
       <div id="card__item" class="card__item mt-4 flex flex-col bg-white border shadow-sm rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]">
         <div class="p-4 md:p-7">
-          <h3 class="card__title text-lg font-bold text-gray-800 dark:text-white">{{.title}}</h3>
-          <p class="card__descr mt-2 text-gray-800 dark:text-gray-400">{{.descr}}</p>
+          <h3 class="card__title text-lg font-bold text-gray-800 dark:text-white">{{.expand.domain_id.title}}</h3>
+          <p class="card__descr mt-2 text-gray-800 dark:text-gray-400">{{.title}}</p>
           <a class="card__link mt-3 inline-flex items-center gap-2 mt-5 text-sm font-medium text-blue-500 hover:text-blue-700" href="">
             Subscribe
             <svg class="w-2.5 h-auto" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
