@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -64,6 +65,7 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/",
 			Handler: func(c echo.Context) error {
+				usrFeeds(c, app)
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -84,8 +86,21 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/newfeed",
 			Handler: func(c echo.Context) error {
-				//feeds(c)
-				log.Println("OneTimeErr2", c.Get("OneTimeErr"))
+				result, err := vsd.Feeds(app)
+				if err != nil {
+					c.Set("err", err.Error())
+				}
+
+				bin, err := json.Marshal(result)
+				if err != nil {
+					fmt.Println(err)
+
+				}
+				resultJson := map[string]interface{}{}
+				json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+				//log.Println("feeds", fmt.Sprintf("%+v\n", resultJson["items"]))
+				c.Set("feeds", resultJson["items"])
+				usrFeeds(c, app)
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -103,6 +118,7 @@ func main() {
 				if err != nil {
 					c.Set("err", err.Error())
 				}
+				usrFeeds(c, app)
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -214,24 +230,28 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	}
 	siteData["feeds"] = c.Get("feeds")
 	siteData["err"] = c.Get("err")
+	siteData["usr_feeds"] = c.Get("usr_feeds")
 
-	log.Println(fmt.Sprintf("siteData:%+v", siteData))
+	//log.Println(fmt.Sprintf("siteData:%+v", siteData))
 
 	return siteData
 }
 
-func feeds(c echo.Context) {
+func usrFeeds(c echo.Context, app *pocketbase.PocketBase) {
+	authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+	if ok {
+		result, err := vsd.UsrFeeds(app, authRecord.GetId())
+		if err != nil {
+			c.Set("err", err.Error())
+		}
+		bin, err := json.Marshal(result)
+		if err != nil {
+			fmt.Println(err)
 
-	resp, err := http.Get("http://127.0.0.1:8090/api/collections/feed/records?page=1&perPage=10")
-	if err != nil {
-		log.Println("Err:", err)
-		return
+		}
+		resultJson := map[string]interface{}{}
+		json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+		//log.Println("UsrFeeds", fmt.Sprintf("%+v\n", resultJson["items"]))
+		c.Set("usr_feeds", resultJson["items"])
 	}
-	result := map[string]interface{}{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		log.Println("Err:", err)
-		return
-	}
-	c.Set("feeds", result["items"])
 }
