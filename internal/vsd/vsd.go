@@ -135,6 +135,29 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 		requestData["user_id"] = userId
 		requestData["feed_id"] = feed.GetId()
 		_, err = CreateRecord(app, "usr_feed", requestData)
+
+		// post
+		for _, rssItem := range fetchedFeed.Items {
+			requestData = map[string]any{}
+			requestData["feed_id"] = feed.GetId()
+			requestData["url"] = rssItem.Link
+			requestData["title"] = rssItem.Title
+			requestData["descr"] = rssItem.Summary
+			if rssItem.Image != nil {
+				requestData["img"] = rssItem.Image.Href
+			} else {
+				for _, encl := range rssItem.Enclosures {
+					if strings.HasPrefix(encl.Type, "image") {
+						requestData["img"] = encl.URL
+						break
+					}
+				}
+			}
+
+			requestData["pub_date"] = rssItem.Date
+
+			_, err = CreateRecord(app, "post", requestData)
+		}
 		return nil, err
 	}
 	// usr_feed
