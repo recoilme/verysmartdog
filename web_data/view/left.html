@@ -67,49 +67,10 @@
             New feed
           </a>
         </li>
-
-        <!--
-        <li class="hs-accordion" id="account-accordion">
-          <a class="hs-accordion-toggle flex items-center gap-x-3.5 py-2 px-2.5 hs-accordion-active:text-blue-600 hs-accordion-active:hover:bg-transparent text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300 dark:hs-accordion-active:text-white" href="javascript:;">
-            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
-              <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z" />
-            </svg>
-            Domains
-
-            <svg class="hs-accordion-active:block ml-auto hidden w-3 h-3 text-gray-600 group-hover:text-gray-500 dark:text-gray-400" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 11L8.16086 5.31305C8.35239 5.13625 8.64761 5.13625 8.83914 5.31305L15 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-            </svg>
-
-            <svg class="hs-accordion-active:hidden ml-auto block w-3 h-3 text-gray-600 group-hover:text-gray-500 dark:text-gray-400" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 5L8.16086 10.6869C8.35239 10.8637 8.64761 10.8637 8.83914 10.6869L15 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-            </svg>
-          </a>
-
-          <div id="account-accordion" class="hs-accordion-content w-full overflow-hidden transition-[height] duration-300 hidden">
-            <ul class="pt-2 pl-2">
-              <li>
-                <a class="flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:text-slate-400 dark:hover:text-slate-300" href="javascript:;">
-                  Link 1
-                </a>
-              </li>
-              <li>
-                <a class="flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:text-slate-400 dark:hover:text-slate-300" href="javascript:;">
-                  Link 2
-                </a>
-              </li>
-              <li>
-                <a class="flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:text-slate-400 dark:hover:text-slate-300" href="javascript:;">
-                  Link 3
-                </a>
-              </li>
-            </ul>
-          </div>
-        </li>
-        -->
+        {{$cur_feedname := .feedname}}
         {{range .usr_feeds}}
-        <li id="left_dom_item">
-          <a id="dom_href" class='flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="javascript:;">
+        <li>
+          <a class='flex {{if eq .expand.feed_id.expand.domain_id.hostname $cur_feedname}} bg-gray-100 dark:bg-gray-900 {{end}}items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="/feed/{{.feed_id}}/{{.expand.feed_id.expand.domain_id.hostname}}">
             <img class="grayscale hover:grayscale-0 inline-block w-4 h-4 mt-0.5" src="{{.expand.feed_id.expand.domain_id.icon}}" alt="">
             <div id="dom_name">{{.expand.feed_id.expand.domain_id.hostname}}</div>
           </a>
@@ -119,40 +80,4 @@
     </nav>
   </div>
   <!-- End Sidebar -->
-
-  <script>
-   
-    const dom_template = document.querySelector('#left_dom_tmpl');
-    const dom_section = document.querySelector('#left_dom_sect');
-    function renderDom() {
-      //console.log('renderFeeds',cards_template,cards_section);
-      client.records.getList('domain', 1, 10).then((result) =>{
-        // success...
-        result.items.forEach((n, i) => {
-          // Get or create a new item
-          let el = dom_template.content.querySelector('#left_dom_item');
-          if (!el) {
-            el = document.importNode(dom_template.content, true).querySelector('#left_dom_item');
-          }
-          dom_section.appendChild(el);
-          el.querySelector('a').href = "javascript:loadFeed('"+n.id+"','"+n.name+"');";
-          el.setAttribute( 'class',"'"+n.name+"'");
-          //res = el.setAttribute( 'class', ' \{\{ if eq .feedname "' +n.name+ '"\}\}dark:bg-gray-900 bg-gray-100 \{\{ end \}\}' );
-          
-          el.querySelector('img').src = n.icon;
-          el.querySelector('#dom_name').innerText = n.name;
-        });
-      }).catch((error) =>{
-        // error...
-        console.log('Error renderDom:', error);
-      });
-    }
-
-    function loadFeed(id,name) {
-      document.location.href='/feed/'+id+'/'+name;
-    }
-  
-    //renderDom();
-    
-  </script>
 {{end}}

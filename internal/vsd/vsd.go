@@ -143,6 +143,7 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 			requestData["url"] = rssItem.Link
 			requestData["title"] = rssItem.Title
 			requestData["descr"] = rssItem.Summary
+
 			if rssItem.Image != nil {
 				requestData["img"] = rssItem.Image.Href
 			} else {
@@ -150,6 +151,18 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 					if strings.HasPrefix(encl.Type, "image") {
 						requestData["img"] = encl.URL
 						break
+					}
+				}
+			}
+			urlInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
+			if err == nil {
+				requestData["descr"] = urlInfo.Description
+				if len(urlInfo.Images) > 0 {
+					for _, img := range urlInfo.Images {
+						if IsUrlValid(img.URL) {
+							requestData["img"] = img.URL
+							break
+						}
 					}
 				}
 			}
@@ -185,4 +198,8 @@ func Feeds(app core.App) (*search.Result, error) {
 
 func UsrFeeds(app core.App, userId string) (*search.Result, error) {
 	return RecordsList(app, "usr_feed", fmt.Sprintf("filter=(user_id='%s')", userId), "feed_id,feed_id.domain_id")
+}
+
+func Posts(app core.App, feedId string) (*search.Result, error) {
+	return RecordsList(app, "post", fmt.Sprintf("filter=(feed_id='%s')", feedId), "feed_id")
 }

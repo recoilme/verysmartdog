@@ -66,6 +66,7 @@ func main() {
 			Path:   "/",
 			Handler: func(c echo.Context) error {
 				usrFeeds(c, app)
+				c.Set("err", "In development")
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -147,6 +148,8 @@ func main() {
 			Path:   "/feed/:id/:name",
 			Handler: func(c echo.Context) error {
 				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
+				usrFeeds(c, app)
+				posts(c, app)
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -231,8 +234,9 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	siteData["feeds"] = c.Get("feeds")
 	siteData["err"] = c.Get("err")
 	siteData["usr_feeds"] = c.Get("usr_feeds")
+	siteData["posts"] = c.Get("posts")
 
-	//log.Println(fmt.Sprintf("siteData:%+v", siteData))
+	log.Println(fmt.Sprintf("siteData:%+v", siteData))
 
 	return siteData
 }
@@ -253,5 +257,23 @@ func usrFeeds(c echo.Context, app *pocketbase.PocketBase) {
 		json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
 		//log.Println("UsrFeeds", fmt.Sprintf("%+v\n", resultJson["items"]))
 		c.Set("usr_feeds", resultJson["items"])
+	}
+}
+
+func posts(c echo.Context, app *pocketbase.PocketBase) {
+	feedId := c.PathParams().Get("id", "-")
+	if feedId != "-" {
+		result, err := vsd.Posts(app, feedId)
+		if err != nil {
+			c.Set("err", err.Error())
+		}
+		bin, err := json.Marshal(result)
+		if err != nil {
+			fmt.Println(err)
+		}
+		resultJson := map[string]interface{}{}
+		json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+		//log.Println("posts", fmt.Sprintf("%+v\n", resultJson["items"]))
+		c.Set("posts", resultJson["items"])
 	}
 }
