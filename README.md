@@ -15,4 +15,4 @@
 
 - ./vsd checkfeeds
 
-<img width="994" alt="Снимок экрана 2022-09-20 в 17 32 56" src="https://user-images.githubusercontent.com/417177/191286332-3be6531d-e39f-4fb4-a4b5-7ae3a8b3b48d.png">
+<img width="1274" alt="Снимок экрана 2022-11-08 в 16 41 16" src="https://user-images.githubusercontent.com/417177/200582500-47ce9af4-9ad5-4eaa-91b6-204158d377d5.png">
