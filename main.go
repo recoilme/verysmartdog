@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -19,6 +20,7 @@ import (
 	"github.com/pocketbase/pocketbase/tokens"
 	"github.com/recoilme/verysmartdog/internal/usecase"
 	"github.com/recoilme/verysmartdog/internal/vsd"
+	_ "github.com/recoilme/verysmartdog/migrations"
 	"github.com/spf13/cobra"
 )
 
@@ -35,14 +37,19 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
+			//log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
 			tokenC, err := c.Cookie("t")
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {
 					return c.Redirect(http.StatusTemporaryRedirect, "/frontpage")
 				}
 			} else {
-				c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
+				if strings.HasPrefix(c.Request().URL.String(), "/_/") ||
+					strings.HasPrefix(c.Request().URL.String(), "/api/") {
+					// do nothing with header for admins
+				} else {
+					c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
+				}
 			}
 			return next(c)
 		}
@@ -65,6 +72,7 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/",
 			Handler: func(c echo.Context) error {
+				//migrations.CreateSheme()
 				usrFeeds(c, app)
 				c.Set("err", "In development")
 				return c.Render(http.StatusOK, "main.html", siteData(c))
@@ -163,6 +171,7 @@ func main() {
 			Handler: func(c echo.Context) error {
 				authRecord, err := vsd.AuthTgSignup(app.Dao(), c.Request().URL.RawQuery)
 				if err != nil {
+					log.Println("Failed to auth", err)
 					return apis.NewBadRequestError("Failed to auth", err)
 				}
 
@@ -267,13 +276,15 @@ func posts(c echo.Context, app *pocketbase.PocketBase) {
 		if err != nil {
 			c.Set("err", err.Error())
 		}
-		bin, err := json.Marshal(result)
-		if err != nil {
-			fmt.Println(err)
-		}
-		resultJson := map[string]interface{}{}
-		json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+
 		//log.Println("posts", fmt.Sprintf("%+v\n", resultJson["items"]))
-		c.Set("posts", resultJson["items"])
+		c.Set("posts", toJson(result)["items"])
 	}
+}
+
+func toJson(in interface{}) map[string]interface{} {
+	bin, _ := json.Marshal(in)
+	resultJson := map[string]interface{}{}
+	json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+	return resultJson
 }
