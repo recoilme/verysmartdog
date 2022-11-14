@@ -37,7 +37,7 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			//log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
+			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
 			tokenC, err := c.Cookie("t")
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {
@@ -60,6 +60,7 @@ func main() {
 	app := pocketbase.New()
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+
 		e.Router.Pre(customAuthMiddleware(app))
 		e.Router.Renderer = &TemplateRegistry{
 			templates: template.Must(template.ParseGlob("web_data/view/*.html")),
@@ -131,7 +132,7 @@ func main() {
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrRecordAuth(),
+				//apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -159,6 +160,22 @@ func main() {
 				usrFeeds(c, app)
 				posts(c, app)
 				return c.Render(http.StatusOK, "main.html", siteData(c))
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrRecordAuth(),
+			},
+		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodPost,
+			Path:   "/feed/:id",
+			Handler: func(c echo.Context) error {
+				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
+				err := vsd.FeedUpd(app, c.PathParams().Get("id", "-"))
+				if err != nil {
+					log.Panicln("Err FeedUpd:", err.Error())
+					return c.HTML(http.StatusInternalServerError, err.Error())
+				}
+				return c.HTML(http.StatusOK, "ok")
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireAdminOrRecordAuth(),
@@ -245,7 +262,7 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	siteData["usr_feeds"] = c.Get("usr_feeds")
 	siteData["posts"] = c.Get("posts")
 
-	log.Println(fmt.Sprintf("siteData:%+v", siteData))
+	//log.Println(fmt.Sprintf("siteData:%+v", siteData))
 
 	return siteData
 }
