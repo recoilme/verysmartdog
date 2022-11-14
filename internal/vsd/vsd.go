@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/SlyMarbo/rss"
 	"github.com/katera/og"
 	"github.com/pocketbase/pocketbase/apis"
@@ -17,6 +17,8 @@ import (
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tools/search"
 	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/recoilme/verysmartdog/pkg/pbapi"
+	"github.com/recoilme/verysmartdog/pkg/urls"
 	"github.com/wesleym/telegramwidget"
 )
 
@@ -61,145 +63,148 @@ func AuthTgSignup(dao *daos.Dao, queryParams string) (*models.Record, error) {
 }
 
 func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
-
-	linkUrl := link
-	if !strings.HasPrefix(link, "http") {
-		linkUrl = "http://" + link
-	}
-	hostname := ""
-	fullUrl := ""
-	uri, err := url.Parse(linkUrl)
-	if err == nil {
-		hostname = strings.TrimPrefix(uri.Hostname(), "www.")
-		parts := strings.Split(hostname, ".")
-		if len(parts) < 2 {
-			hostname = ""
-		}
-		fullUrl = uri.Scheme + "://" + hostname
-	}
-	if hostname == "" {
-		//search by link
-		log.Println("search by link", err)
+	link = strings.TrimSpace(link)
+	domainUrl, hostname, err := urls.DomainHostName(link)
+	if err != nil {
+		log.Println("DomainHostName:", err)
 		return nil, errors.New("Err: no hostname in feed url:'" + link + "'")
 	}
-	feed, err := app.Dao().FindFirstRecordByData("feed", "url", link)
+
+	// domain
+	requestData := map[string]any{}
+	domain, err := app.Dao().FindFirstRecordByData("domain", "url", domainUrl)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, err
-		}
-		// feed not found by url, try fetch
-		fetchedFeed, err := rss.Fetch(link)
-		if err != nil {
-			return nil, err
-		}
-
-		domInfo, err := og.GetOpenGraphFromUrl("http://" + hostname)
-		if err != nil {
-			return nil, err
-		}
-		requestData := map[string]any{}
-		if IsUrlValid(fullUrl) {
-			requestData["url"] = fullUrl
-		} else {
-			if IsUrlValid(strings.TrimSuffix(domInfo.Url, "/")) {
-				requestData["url"] = strings.TrimSuffix(domInfo.Url, "/")
-			}
-		}
-		if IsUrlValid(requestData["url"].(string) + "/favicon.ico") {
-			requestData["icon"] = requestData["url"].(string) + "/favicon.ico"
-		} else {
-			if len(domInfo.Images) > 0 {
-				for _, img := range domInfo.Images {
-					if IsUrlValid(img.URL) {
-						requestData["icon"] = img.URL
-						break
-					}
-				}
-			}
-		}
-		requestData["hostname"] = hostname
-		requestData["title"] = domInfo.Title
-		requestData["descr"] = domInfo.Description
-		requestData["lang"] = domInfo.Locale
-		domain, err := CreateRecord(app, "domain", requestData)
-		// feed
-		requestData = map[string]any{}
-		requestData["domain_id"] = domain.GetId()
-		requestData["url"] = link
-		requestData["title"] = fetchedFeed.Title
-		requestData["descr"] = fetchedFeed.Description
-		feed, err := CreateRecord(app, "feed", requestData)
-
-		// usr_feed
-		requestData = map[string]any{}
-		requestData["user_id"] = userId
-		requestData["feed_id"] = feed.GetId()
-		_, err = CreateRecord(app, "usr_feed", requestData)
-
-		// post
-		for _, rssItem := range fetchedFeed.Items {
+		switch err {
+		case sql.ErrNoRows:
+			// add domain
 			requestData = map[string]any{}
-			requestData["feed_id"] = feed.GetId()
-			requestData["url"] = rssItem.Link
-			requestData["title"] = rssItem.Title
-			requestData["descr"] = rssItem.Summary
-
-			if rssItem.Image != nil {
-				requestData["img"] = rssItem.Image.Href
-			} else {
-				for _, encl := range rssItem.Enclosures {
-					if strings.HasPrefix(encl.Type, "image") {
-						requestData["img"] = encl.URL
-						break
-					}
-				}
+			requestData["url"] = domainUrl
+			requestData["hostname"] = hostname
+			domInfo, err := og.GetOpenGraphFromUrl(domainUrl)
+			if err != nil {
+				return nil, err
 			}
-			urlInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
-			if err == nil {
-				requestData["descr"] = urlInfo.Description
-				if len(urlInfo.Images) > 0 {
-					for _, img := range urlInfo.Images {
-						if IsUrlValid(img.URL) {
-							requestData["img"] = img.URL
+			requestData["title"] = domInfo.Title
+			requestData["descr"] = domInfo.Description
+			requestData["lang"] = domInfo.Locale
+			favicon := strings.TrimRight(domainUrl, "/") + "/favicon.ico"
+			if !urls.IsUrlValid(favicon) {
+				if len(domInfo.Images) > 0 {
+					for _, img := range domInfo.Images {
+						if urls.IsUrlValid(img.URL) {
+							favicon = img.URL
 							break
 						}
 					}
 				}
 			}
-
-			requestData["pub_date"] = rssItem.Date
-
-			_, err = CreateRecord(app, "post", requestData)
+			requestData["icon"] = favicon
+			//requestData["lang"] = domInfo.Locale
+			domain, err = pbapi.RecordCreate(app, "domain", &models.Admin{}, requestData)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, err
 		}
-		return nil, err
 	}
+
+	// feed
+	feed, err := app.Dao().FindFirstRecordByData("feed", "url", link)
+	if err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			// new feed
+			//log.Println("new feed")
+			fetchedFeed, err := rss.Fetch(link)
+			if err != nil {
+				log.Println("fetchedFeed", err)
+				return nil, err
+			}
+			requestData = map[string]any{}
+			requestData["domain_id"] = domain.GetId()
+			requestData["url"] = link
+			requestData["title"] = fetchedFeed.Title
+			requestData["descr"] = fetchedFeed.Description
+			feed, err = pbapi.RecordCreate(app, "feed", &models.Admin{}, requestData)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			// some other error
+			return nil, err
+		}
+	}
+	_ = feed
 	// usr_feed
-	requestData := map[string]any{}
+	requestData = map[string]any{}
 	requestData["user_id"] = userId
 	requestData["feed_id"] = feed.GetId()
-	_, err = CreateRecord(app, "usr_feed", requestData)
-	return nil, err
-}
-
-func IsUrlValid(url string) bool {
-	resp, err := http.Head(url)
+	_, err = pbapi.RecordCreate(app, "usr_feed", nil, requestData)
 	if err != nil {
-		return false
+		return nil, err
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true
-	}
-	return false
+	go FeedUpd(app, feed.GetId())
+	return nil, nil
 }
 
 func Feeds(app core.App) (*search.Result, error) {
-	return RecordsList(app, "feed", "", "domain_id")
+	return pbapi.RecordList(app, "feed", "", "domain_id")
 }
 
 func UsrFeeds(app core.App, userId string) (*search.Result, error) {
-	return RecordsList(app, "usr_feed", fmt.Sprintf("filter=(user_id='%s')", userId), "feed_id,feed_id.domain_id")
+	return pbapi.RecordList(app, "usr_feed", fmt.Sprintf("filter=(user_id='%s')", userId), "feed_id,feed_id.domain_id")
 }
 
 func Posts(app core.App, feedId string) (*search.Result, error) {
-	return RecordsList(app, "post", fmt.Sprintf("filter=(feed_id='%s')", feedId), "feed_id")
+	return pbapi.RecordList(app, "post", fmt.Sprintf("filter=(feed_id='%s')", feedId), "feed_id")
+}
+
+func FeedUpd(app core.App, feedId string) error {
+	log.Println("FeedUpd", feedId)
+	feed, err := app.Dao().FindFirstRecordByData("feed", "id", feedId)
+	if err != nil {
+		return err
+	}
+	// .FindFirstRecordByData("feed", "url", link)
+	fetchedFeed, err := rss.Fetch(feed.GetString("url"))
+	if err != nil {
+		return err
+	}
+	for _, rssItem := range fetchedFeed.Items {
+		title, err := goquery.NewDocumentFromReader(strings.NewReader(rssItem.Title))
+		if err != nil {
+			return err
+		}
+		titleTxt := title.Text()
+		requestData := map[string]any{}
+		requestData["feed_id"] = feed.GetId()
+		requestData["url"] = rssItem.Link
+		requestData["title"] = titleTxt
+		requestData["pub_date"] = rssItem.Date
+		domInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
+		if err != nil {
+			return err
+		}
+		if domInfo.Description != "" {
+			descrOg, err := goquery.NewDocumentFromReader(strings.NewReader(domInfo.Description))
+			if err != nil {
+				return err
+			}
+			requestData["descr"] = descrOg.Text()
+		} else {
+			summaryRss, err := goquery.NewDocumentFromReader(strings.NewReader(rssItem.Summary))
+			if err != nil {
+				return err
+			}
+			requestData["descr"] = summaryRss.Text()
+		}
+		//log.Println(requestData)
+		_, err = pbapi.RecordCreate(app, "post", &models.Admin{}, requestData)
+		if err != nil {
+			log.Println("FeedUpd", "RecordCreate", err)
+			return err
+		}
+	}
+	return nil
 }

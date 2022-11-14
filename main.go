@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -19,6 +20,7 @@ import (
 	"github.com/pocketbase/pocketbase/tokens"
 	"github.com/recoilme/verysmartdog/internal/usecase"
 	"github.com/recoilme/verysmartdog/internal/vsd"
+	_ "github.com/recoilme/verysmartdog/migrations"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +44,12 @@ func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 					return c.Redirect(http.StatusTemporaryRedirect, "/frontpage")
 				}
 			} else {
-				c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
+				if strings.HasPrefix(c.Request().URL.String(), "/_/") ||
+					strings.HasPrefix(c.Request().URL.String(), "/api/") {
+					// do nothing with header for admins
+				} else {
+					c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
+				}
 			}
 			return next(c)
 		}
@@ -53,6 +60,7 @@ func main() {
 	app := pocketbase.New()
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+
 		e.Router.Pre(customAuthMiddleware(app))
 		e.Router.Renderer = &TemplateRegistry{
 			templates: template.Must(template.ParseGlob("web_data/view/*.html")),
@@ -65,6 +73,7 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/",
 			Handler: func(c echo.Context) error {
+				//migrations.CreateSheme()
 				usrFeeds(c, app)
 				c.Set("err", "In development")
 				return c.Render(http.StatusOK, "main.html", siteData(c))
@@ -123,7 +132,7 @@ func main() {
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				apis.RequireAdminOrRecordAuth(),
+				//apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -156,6 +165,22 @@ func main() {
 				apis.RequireAdminOrRecordAuth(),
 			},
 		})
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodPost,
+			Path:   "/feed/:id",
+			Handler: func(c echo.Context) error {
+				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
+				err := vsd.FeedUpd(app, c.PathParams().Get("id", "-"))
+				if err != nil {
+					log.Panicln("Err FeedUpd:", err.Error())
+					return c.HTML(http.StatusInternalServerError, err.Error())
+				}
+				return c.HTML(http.StatusOK, "ok")
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrRecordAuth(),
+			},
+		})
 
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
@@ -163,6 +188,7 @@ func main() {
 			Handler: func(c echo.Context) error {
 				authRecord, err := vsd.AuthTgSignup(app.Dao(), c.Request().URL.RawQuery)
 				if err != nil {
+					log.Println("Failed to auth", err)
 					return apis.NewBadRequestError("Failed to auth", err)
 				}
 
@@ -236,7 +262,7 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	siteData["usr_feeds"] = c.Get("usr_feeds")
 	siteData["posts"] = c.Get("posts")
 
-	log.Println(fmt.Sprintf("siteData:%+v", siteData))
+	//log.Println(fmt.Sprintf("siteData:%+v", siteData))
 
 	return siteData
 }
@@ -267,13 +293,15 @@ func posts(c echo.Context, app *pocketbase.PocketBase) {
 		if err != nil {
 			c.Set("err", err.Error())
 		}
-		bin, err := json.Marshal(result)
-		if err != nil {
-			fmt.Println(err)
-		}
-		resultJson := map[string]interface{}{}
-		json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+
 		//log.Println("posts", fmt.Sprintf("%+v\n", resultJson["items"]))
-		c.Set("posts", resultJson["items"])
+		c.Set("posts", toJson(result)["items"])
 	}
+}
+
+func toJson(in interface{}) map[string]interface{} {
+	bin, _ := json.Marshal(in)
+	resultJson := map[string]interface{}{}
+	json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+	return resultJson
 }

@@ -7,3 +7,4 @@ logs.db-shm
 logs.db
 pb_data
 !vsd/
+sqlite3

@@ -13,6 +13,8 @@ require (
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6 // indirect
+	github.com/PuerkitoBio/goquery v1.8.0 // indirect
+	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-sdk-go v1.44.126 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.1 // indirect
