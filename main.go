@@ -154,7 +154,7 @@ func main() {
 		})
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
-			Path:   "/feed/:id/:name",
+			Path:   "/feed/:feedid/:name",
 			Handler: func(c echo.Context) error {
 				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
 				usrFeeds(c, app)
@@ -167,10 +167,10 @@ func main() {
 		})
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodPost,
-			Path:   "/feed/:id",
+			Path:   "/feed/:feedid",
 			Handler: func(c echo.Context) error {
 				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
-				err := vsd.FeedUpd(app, c.PathParams().Get("id", "-"))
+				err := vsd.FeedUpd(app, c.PathParams().Get("feedid", "-"))
 				if err != nil {
 					log.Panicln("Err FeedUpd:", err.Error())
 					return c.HTML(http.StatusInternalServerError, err.Error())
@@ -249,13 +249,13 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	siteData["photo_url"] = authRecord.GetString("photo_url")
 	siteData["name"] = authRecord.GetString("username")
 	siteData["userId"] = authRecord.GetId()
-	feedname := c.PathParams().Get("name", "-")
-	if feedname == "-" {
+	feedId := c.PathParams().Get("feedid", "-")
+	if feedId == "-" {
 		siteData["path"] = c.Request().URL.String()
-		siteData["feedname"] = ""
+		siteData["feedid"] = ""
 	} else {
 		siteData["path"] = "/feed"
-		siteData["feedname"] = feedname
+		siteData["feedid"] = feedId
 	}
 	siteData["feeds"] = c.Get("feeds")
 	siteData["err"] = c.Get("err")
@@ -287,7 +287,7 @@ func usrFeeds(c echo.Context, app *pocketbase.PocketBase) {
 }
 
 func posts(c echo.Context, app *pocketbase.PocketBase) {
-	feedId := c.PathParams().Get("id", "-")
+	feedId := c.PathParams().Get("feedid", "-")
 	if feedId != "-" {
 		result, err := vsd.Posts(app, feedId)
 		if err != nil {

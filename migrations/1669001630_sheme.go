@@ -22,6 +22,7 @@ func init() {
 				CREATE INDEX '_51lodztkxakfboh_created_idx' ON 'domain' ('created');
 				CREATE TABLE 'feed' ('created' TEXT DEFAULT '' NOT NULL, 'descr' TEXT DEFAULT '', 'domain_id' TEXT DEFAULT '', 'id' TEXT PRIMARY KEY, 'last_error' TEXT DEFAULT '', 'last_fetch' TEXT DEFAULT '', 'resp_code' REAL DEFAULT 0, 'title' TEXT DEFAULT '', 'updated' TEXT DEFAULT '' NOT NULL, 'url' TEXT DEFAULT '');
 				CREATE INDEX '_to82imph7oc7bqi_created_idx' ON 'feed' ('created');
+				CREATE INDEX 'feed_last_fetch_idx' ON 'feed' ('last_fetch');
 				CREATE TABLE 'post' ('created' TEXT DEFAULT '' NOT NULL, 'descr' TEXT DEFAULT '', 'feed_id' TEXT DEFAULT '', 'id' TEXT PRIMARY KEY, 'img' TEXT DEFAULT '', 'pub_date' TEXT DEFAULT '', 'sum_html' TEXT DEFAULT '', 'sum_txt' TEXT DEFAULT '', 'title' TEXT DEFAULT '', 'updated' TEXT DEFAULT '' NOT NULL, 'url' TEXT DEFAULT '');
 				CREATE INDEX '_d6mbq3heomws7j8_created_idx' ON 'post' ('created');
 				CREATE TABLE 'usr_feed' ('created' TEXT DEFAULT '' NOT NULL, 'feed_id' TEXT DEFAULT '', 'id' TEXT PRIMARY KEY, 'updated' TEXT DEFAULT '' NOT NULL, 'user_id' TEXT DEFAULT '');

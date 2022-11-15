@@ -7,10 +7,11 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/SlyMarbo/rss"
 	"github.com/katera/og"
+	"github.com/mmcdole/gofeed"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
@@ -21,46 +22,6 @@ import (
 	"github.com/recoilme/verysmartdog/pkg/urls"
 	"github.com/wesleym/telegramwidget"
 )
-
-func AuthTgSignup(dao *daos.Dao, queryParams string) (*models.Record, error) {
-
-	params, paramsErr := url.ParseQuery(queryParams)
-	if paramsErr != nil {
-		return nil, apis.NewBadRequestError("Failed to create user token, bad params", paramsErr)
-	}
-	uData, tgwErr := telegramwidget.ConvertAndVerifyForm(params, string("5537821699:AAFTg_0meVPkMrD-qY8kLSPkH6cXVaXcj1w"))
-	if tgwErr != nil {
-		return nil, apis.NewBadRequestError("Failed to verify user token", tgwErr)
-	}
-	email := fmt.Sprintf("%d@t.me", uData.ID)
-	authRecord, authRecordErr := dao.FindAuthRecordByEmail("users", email)
-	if authRecordErr != nil {
-		// not found user
-		saveErr := dao.RunInTransaction(func(txDao *daos.Dao) error {
-
-			collection, err := dao.FindCollectionByNameOrId("users")
-			if err != nil {
-				return err
-			}
-			authRecord = models.NewRecord(collection)
-			authRecord.SetEmail(email)
-			authRecord.SetPassword(security.RandomString(30))
-			authRecord.SetUsername(uData.Username)
-			authRecord.Set("photo_url", uData.PhotoURL.String())
-
-			// create the new user
-			if err := txDao.Save(authRecord); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if saveErr != nil {
-			return nil, saveErr
-		}
-	}
-	return authRecord, nil
-}
 
 func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 	link = strings.TrimSpace(link)
@@ -116,10 +77,15 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 		case sql.ErrNoRows:
 			// new feed
 			//log.Println("new feed")
-			fetchedFeed, err := rss.Fetch(link)
+			fp := gofeed.NewParser()
+			fetchedFeed, err := fp.ParseURL(link)
 			if err != nil {
 				log.Println("fetchedFeed", err)
 				return nil, err
+			}
+			if fetchedFeed.Image != nil {
+				domain.Set("icon", fetchedFeed.Image.URL)
+				app.Dao().SaveRecord(domain)
 			}
 			requestData = map[string]any{}
 			requestData["domain_id"] = domain.GetId()
@@ -164,10 +130,16 @@ func FeedUpd(app core.App, feedId string) error {
 	log.Println("FeedUpd", feedId)
 	feed, err := app.Dao().FindFirstRecordByData("feed", "id", feedId)
 	if err != nil {
+		feed.Set("last_error", err.Error())
+		feed.Set("last_fetch", time.Now())
+		app.Dao().SaveRecord(feed)
 		return err
 	}
-	// .FindFirstRecordByData("feed", "url", link)
-	fetchedFeed, err := rss.Fetch(feed.GetString("url"))
+	feed.Set("last_fetch", time.Now())
+	feed.Set("last_error", "")
+	app.Dao().SaveRecord(feed)
+	fp := gofeed.NewParser()
+	fetchedFeed, err := fp.ParseURL(feed.GetString("url"))
 	if err != nil {
 		return err
 	}
@@ -181,7 +153,7 @@ func FeedUpd(app core.App, feedId string) error {
 		requestData["feed_id"] = feed.GetId()
 		requestData["url"] = rssItem.Link
 		requestData["title"] = titleTxt
-		requestData["pub_date"] = rssItem.Date
+		requestData["pub_date"] = rssItem.PublishedParsed
 		domInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
 		if err != nil {
 			return err
@@ -193,12 +165,26 @@ func FeedUpd(app core.App, feedId string) error {
 			}
 			requestData["descr"] = descrOg.Text()
 		} else {
-			summaryRss, err := goquery.NewDocumentFromReader(strings.NewReader(rssItem.Summary))
+			summaryRss, err := goquery.NewDocumentFromReader(strings.NewReader(rssItem.Description))
 			if err != nil {
 				return err
 			}
 			requestData["descr"] = summaryRss.Text()
 		}
+		content := rssItem.Content
+		if content == "" {
+			content = rssItem.Description
+		}
+		requestData["sum_html"] = content
+		contentRss, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+		if err != nil {
+			return err
+		}
+		requestData["sum_txt"] = contentRss.Text()
+		if rssItem.Image != nil {
+			requestData["img"] = rssItem.Image.URL
+		}
+
 		//log.Println(requestData)
 		_, err = pbapi.RecordCreate(app, "post", &models.Admin{}, requestData)
 		if err != nil {
@@ -207,4 +193,44 @@ func FeedUpd(app core.App, feedId string) error {
 		}
 	}
 	return nil
+}
+
+func AuthTgSignup(dao *daos.Dao, queryParams string) (*models.Record, error) {
+
+	params, paramsErr := url.ParseQuery(queryParams)
+	if paramsErr != nil {
+		return nil, apis.NewBadRequestError("Failed to create user token, bad params", paramsErr)
+	}
+	uData, tgwErr := telegramwidget.ConvertAndVerifyForm(params, string("5537821699:AAFTg_0meVPkMrD-qY8kLSPkH6cXVaXcj1w"))
+	if tgwErr != nil {
+		return nil, apis.NewBadRequestError("Failed to verify user token", tgwErr)
+	}
+	email := fmt.Sprintf("%d@t.me", uData.ID)
+	authRecord, authRecordErr := dao.FindAuthRecordByEmail("users", email)
+	if authRecordErr != nil {
+		// not found user
+		saveErr := dao.RunInTransaction(func(txDao *daos.Dao) error {
+
+			collection, err := dao.FindCollectionByNameOrId("users")
+			if err != nil {
+				return err
+			}
+			authRecord = models.NewRecord(collection)
+			authRecord.SetEmail(email)
+			authRecord.SetPassword(security.RandomString(30))
+			authRecord.SetUsername(uData.Username)
+			authRecord.Set("photo_url", uData.PhotoURL.String())
+
+			// create the new user
+			if err := txDao.Save(authRecord); err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if saveErr != nil {
+			return nil, saveErr
+		}
+	}
+	return authRecord, nil
 }
