@@ -18,42 +18,15 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tokens"
-	"github.com/recoilme/verysmartdog/internal/usecase"
 	"github.com/recoilme/verysmartdog/internal/vsd"
 	_ "github.com/recoilme/verysmartdog/migrations"
-	"github.com/spf13/cobra"
+	"github.com/recoilme/verysmartdog/pkg/pbapi"
+	"github.com/tidwall/interval"
 )
 
 // Define the template registry struct
 type TemplateRegistry struct {
 	templates *template.Template
-}
-
-// Implement e.Renderer interface
-func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
-}
-
-func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
-			tokenC, err := c.Cookie("t")
-			if err != nil || tokenC == nil {
-				if c.Request().URL.String() == "/" {
-					return c.Redirect(http.StatusTemporaryRedirect, "/frontpage")
-				}
-			} else {
-				if strings.HasPrefix(c.Request().URL.String(), "/_/") ||
-					strings.HasPrefix(c.Request().URL.String(), "/api/") {
-					// do nothing with header for admins
-				} else {
-					c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
-				}
-			}
-			return next(c)
-		}
-	}
 }
 
 func main() {
@@ -154,7 +127,7 @@ func main() {
 		})
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodGet,
-			Path:   "/feed/:feedid/:name",
+			Path:   "/feed/:feedid/:domainname/:period",
 			Handler: func(c echo.Context) error {
 				//log.Print(c.PathParams().Get("id", "-"), c.PathParams().Get("name", "-"))
 				usrFeeds(c, app)
@@ -212,20 +185,40 @@ func main() {
 		return nil
 	})
 
-	app.RootCmd.AddCommand(&cobra.Command{
-		Use: "checkfeeds",
-		Run: func(command *cobra.Command, args []string) {
-			log.Println("Checking feeds started")
-			updater := usecase.NewFeedsUpdater(app.DB())
-			if err := updater.CheckFeeds(1); err != nil {
-				log.Fatal(err)
-			}
-			log.Println("Checking feeds finished")
-		},
-	})
+	iv := interval.Set(func(t time.Time) {
+		feedUpd(app)
+	}, 1*time.Minute)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
+		iv.Clear()
+	}
+}
+
+// Implement e.Renderer interface
+func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	return t.templates.ExecuteTemplate(w, name, data)
+}
+
+func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
+			tokenC, err := c.Cookie("t")
+			if err != nil || tokenC == nil {
+				if c.Request().URL.String() == "/" {
+					return c.Redirect(http.StatusTemporaryRedirect, "/frontpage")
+				}
+			} else {
+				if strings.HasPrefix(c.Request().URL.String(), "/_/") ||
+					strings.HasPrefix(c.Request().URL.String(), "/api/") {
+					// do nothing with header for admins
+				} else {
+					c.Request().Header.Set("Authorization", "Bearer "+tokenC.Value)
+				}
+			}
+			return next(c)
+		}
 	}
 }
 
@@ -257,6 +250,8 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 		siteData["path"] = "/feed"
 		siteData["feedid"] = feedId
 	}
+	siteData["period"] = c.PathParams().Get("period", "-")
+	siteData["domainname"] = c.PathParams().Get("domainname", "-")
 	siteData["feeds"] = c.Get("feeds")
 	siteData["err"] = c.Get("err")
 	siteData["usr_feeds"] = c.Get("usr_feeds")
@@ -274,34 +269,51 @@ func usrFeeds(c echo.Context, app *pocketbase.PocketBase) {
 		if err != nil {
 			c.Set("err", err.Error())
 		}
-		bin, err := json.Marshal(result)
-		if err != nil {
-			fmt.Println(err)
-
-		}
-		resultJson := map[string]interface{}{}
-		json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
-		//log.Println("UsrFeeds", fmt.Sprintf("%+v\n", resultJson["items"]))
-		c.Set("usr_feeds", resultJson["items"])
+		c.Set("usr_feeds", toJson(result)["items"])
 	}
 }
 
 func posts(c echo.Context, app *pocketbase.PocketBase) {
 	feedId := c.PathParams().Get("feedid", "-")
+	period := c.PathParams().Get("period", "-")
 	if feedId != "-" {
-		result, err := vsd.Posts(app, feedId)
+		result, err := vsd.Posts(app, feedId, period)
 		if err != nil {
 			c.Set("err", err.Error())
 		}
-
-		//log.Println("posts", fmt.Sprintf("%+v\n", resultJson["items"]))
 		c.Set("posts", toJson(result)["items"])
 	}
 }
 
 func toJson(in interface{}) map[string]interface{} {
-	bin, _ := json.Marshal(in)
+	bin, err := json.Marshal(in)
+	if err != nil {
+		log.Println(err)
+	}
 	resultJson := map[string]interface{}{}
 	json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
 	return resultJson
+}
+
+func feedUpd(app *pocketbase.PocketBase) {
+	hourAgo := time.Now().UTC().Add(-1 * time.Hour)
+
+	sres, err := pbapi.RecordList(app, "feed", fmt.Sprintf("page=1&perPage=2&sort=last_fetch&filter=(last_fetch<'%s')", hourAgo.Format("2006-01-02 15:04:05")), "")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	if x, ok := sres.Items.([]*models.Record); ok {
+		for _, rec := range x {
+			log.Println("fetch", rec.GetString("last_fetch"))
+			err := vsd.FeedUpd(app, rec.Id)
+			if err != nil {
+				log.Println("Error: updating feed", rec.GetString("url"), err)
+				return
+			}
+		}
+	} else {
+		fmt.Printf("I don't know how to handle %T\n", sres.Items)
+	}
+	return
 }
