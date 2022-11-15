@@ -67,10 +67,10 @@
             New feed
           </a>
         </li>
-        {{$cur_feedname := .feedname}}
+        {{$cur_feedid := .feedid}}
         {{range .usr_feeds}}
         <li>
-          <a class='flex {{if eq .expand.feed_id.expand.domain_id.hostname $cur_feedname}} bg-gray-100 dark:bg-gray-900 {{end}}items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="/feed/{{.feed_id}}/{{.expand.feed_id.expand.domain_id.hostname}}">
+          <a class='flex {{if eq .feed_id $cur_feedid}} bg-gray-100 dark:bg-gray-900 {{end}}items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-900 dark:text-slate-400 dark:hover:text-slate-300' href="/feed/{{.feed_id}}/{{.expand.feed_id.expand.domain_id.hostname}}">
             <img class="grayscale hover:grayscale-0 inline-block w-4 h-4 mt-0.5" src="{{.expand.feed_id.expand.domain_id.icon}}" alt="">
             <div id="dom_name">{{.expand.feed_id.expand.domain_id.hostname}}</div>
           </a>
