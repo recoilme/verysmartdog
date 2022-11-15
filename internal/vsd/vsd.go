@@ -122,8 +122,22 @@ func UsrFeeds(app core.App, userId string) (*search.Result, error) {
 	return pbapi.RecordList(app, "usr_feed", fmt.Sprintf("filter=(user_id='%s')", userId), "feed_id,feed_id.domain_id")
 }
 
-func Posts(app core.App, feedId string) (*search.Result, error) {
-	return pbapi.RecordList(app, "post", fmt.Sprintf("filter=(feed_id='%s')", feedId), "feed_id")
+func Posts(app core.App, feedId, period string) (*search.Result, error) {
+	td := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.UTC)
+	tm := td.Add(24 * time.Hour)
+	switch period {
+	case "yesterday":
+		td = td.Add(-24 * time.Hour)
+		tm = tm.Add(-24 * time.Hour)
+	case "week":
+		td = td.Add(-24 * 7 * time.Hour)
+	}
+	query := fmt.Sprintf(`pub_date>="%s" && pub_date<"%s" && feed_id="%s"`,
+		td.Format("2006-01-02"), tm.Format("2006-01-02"), feedId)
+	//log.Println(query)
+
+	filter := "sort=-pub_date&filter=" + url.QueryEscape(query)
+	return pbapi.RecordList(app, "post", filter, "feed_id")
 }
 
 func FeedUpd(app core.App, feedId string) error {
