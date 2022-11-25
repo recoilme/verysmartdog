@@ -27,7 +27,7 @@ func RecordView(app core.App, collectionNameOrId, queryString, expand string) ([
 	fieldsResolver := resolvers.NewRecordFieldResolver(
 		app.Dao(),
 		collection,
-		requestData,
+		&models.RequestData{Data: requestData},
 		// hidden fields are searchable only by admins
 		false,
 	)
@@ -71,7 +71,7 @@ func RecordList(app core.App, collectionNameOrId, queryString, expand string) (*
 	fieldsResolver := resolvers.NewRecordFieldResolver(
 		app.Dao(),
 		collection,
-		requestData,
+		&models.RequestData{Data: requestData},
 		// hidden fields are searchable only by admins
 		false,
 	)
@@ -121,7 +121,7 @@ func expandFetch(
 			}
 
 			if *relCollection.ViewRule != "" {
-				resolver := resolvers.NewRecordFieldResolver(dao, relCollection, requestData, true)
+				resolver := resolvers.NewRecordFieldResolver(dao, relCollection, &models.RequestData{Data: requestData}, true)
 				expr, err := search.FilterData(*(relCollection.ViewRule)).BuildExpr(resolver)
 				if err != nil {
 					return err
@@ -185,7 +185,7 @@ func createTest(app core.App, collection *models.Collection, admin *models.Admin
 				return nil // no create rule to resolve
 			}
 
-			resolver := resolvers.NewRecordFieldResolver(app.Dao(), collection, fieldsMap, true)
+			resolver := resolvers.NewRecordFieldResolver(app.Dao(), collection, &models.RequestData{Data: fieldsMap}, true)
 			expr, err := search.FilterData(*collection.CreateRule).BuildExpr(resolver)
 			if err != nil {
 				return err
@@ -241,7 +241,7 @@ func hasAuthManageAccess(
 	}
 
 	ruleFunc := func(q *dbx.SelectQuery) error {
-		resolver := resolvers.NewRecordFieldResolver(dao, record.Collection(), requestData, true)
+		resolver := resolvers.NewRecordFieldResolver(dao, record.Collection(), &models.RequestData{Data: requestData}, true)
 		expr, err := search.FilterData(*manageRule).BuildExpr(resolver)
 		if err != nil {
 			return err
