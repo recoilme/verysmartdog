@@ -92,6 +92,12 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 			requestData["url"] = link
 			requestData["title"] = fetchedFeed.Title
 			requestData["descr"] = fetchedFeed.Description
+			requestData["pub_date"] = fetchedFeed.UpdatedParsed
+			requestData["lang"] = fetchedFeed.Language
+			if fetchedFeed.Image != nil {
+				requestData["icon"] = fetchedFeed.Image.URL
+			}
+
 			feed, err = pbapi.RecordCreate(app, "feed", &models.Admin{}, requestData)
 			if err != nil {
 				return nil, err
@@ -149,14 +155,18 @@ func FeedUpd(app core.App, feedId string) error {
 		app.Dao().SaveRecord(feed)
 		return err
 	}
-	feed.Set("last_fetch", time.Now())
-	feed.Set("last_error", "")
-	app.Dao().SaveRecord(feed)
 	fp := gofeed.NewParser()
 	fetchedFeed, err := fp.ParseURL(feed.GetString("url"))
 	if err != nil {
+		feed.Set("last_error", err.Error())
+		feed.Set("last_fetch", time.Now())
+		app.Dao().SaveRecord(feed)
 		return err
 	}
+	feed.Set("last_fetch", time.Now())
+	feed.Set("last_error", "")
+	feed.Set("pub_date", fetchedFeed.UpdatedParsed)
+	app.Dao().SaveRecord(feed)
 	for _, rssItem := range fetchedFeed.Items {
 		title, err := goquery.NewDocumentFromReader(strings.NewReader(rssItem.Title))
 		if err != nil {
