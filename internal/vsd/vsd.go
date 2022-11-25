@@ -178,6 +178,13 @@ func FeedUpd(app core.App, feedId string) error {
 		requestData["url"] = rssItem.Link
 		requestData["title"] = titleTxt
 		requestData["pub_date"] = rssItem.PublishedParsed
+		requestData["guid"] = rssItem.GUID
+		if len(rssItem.Authors) > 0 {
+			requestData["author"] = rssItem.Authors[0].Name
+		}
+		if len(rssItem.Categories) > 0 {
+			requestData["category"] = rssItem.Categories[0]
+		}
 		domInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
 		if err != nil {
 			return err
