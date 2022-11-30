@@ -172,9 +172,8 @@ func UsrFeeds(app core.App, userId string) (*search.Result, error) {
 
 func AllPosts(app core.App, userId string) (*search.Result, error) {
 	td := time.Now().UTC().Add(-24 * time.Hour)
-	tm := time.Now().UTC()
-	query := fmt.Sprintf(`pub_date>="%s" && pub_date<="%s" && (`,
-		td.Format("2006-01-02"), tm.Format("2006-01-02"))
+	query := fmt.Sprintf(`pub_date>="%s" && (`,
+		td.Format("2006-01-02 15:04:05"))
 	//log.Println(query)
 
 	expr1 := dbx.HashExp{"user_id": userId}
@@ -195,7 +194,7 @@ func AllPosts(app core.App, userId string) (*search.Result, error) {
 	}
 	query += ")"
 	log.Println("AllPosts", query)
-	filter := "sort=-pub_date&filter=" + url.QueryEscape(query)
+	filter := "sort=-pub_date&perPage=100&filter=" + url.QueryEscape(query)
 	return pbapi.RecordList(app, "post", filter, "feed_id")
 }
 
@@ -213,7 +212,7 @@ func Posts(app core.App, feedId, period string) (*search.Result, error) {
 		td.Format("2006-01-02"), tm.Format("2006-01-02"), feedId)
 	//log.Println(query)
 
-	filter := "sort=-pub_date&filter=" + url.QueryEscape(query)
+	filter := "sort=-pub_date&perPage=100&filter=" + url.QueryEscape(query)
 	return pbapi.RecordList(app, "post", filter, "feed_id")
 }
 
