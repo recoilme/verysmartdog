@@ -70,7 +70,11 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/newfeed",
 			Handler: func(c echo.Context) error {
-				result, err := vsd.Feeds(app)
+				userId := ""
+				if authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record); ok {
+					userId = authRecord.GetId()
+				}
+				result, err := vsd.NotUserFeeds(app, userId)
 				if err != nil {
 					c.Set("err", err.Error())
 				}
@@ -161,7 +165,7 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/subscriptions/:subscrtype/:subscrmethod/:subscrid",
 			Handler: func(c echo.Context) error {
-				log.Print(c.PathParams().Get("subscrtype", "-"), c.PathParams().Get("subscrmethod", "-"))
+				//log.Print(c.PathParams().Get("subscrtype", "-"), c.PathParams().Get("subscrmethod", "-"))
 				userId := ""
 				authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record)
 				if ok {
@@ -171,9 +175,15 @@ func main() {
 				case "feed":
 					switch c.PathParams().Get("subscrmethod", "-") {
 					case "subscribe":
-						vsd.SubscrFeed(app, c.PathParams().Get("subscrid", "-"), userId)
+						err := vsd.SubscrFeed(app, c.PathParams().Get("subscrid", "-"), userId)
+						if err != nil {
+							return err
+						}
 					case "unsubscribe":
-						vsd.UnsubscrFeed(app, c.PathParams().Get("subscrid", "-"), userId)
+						err := vsd.UnsubscrFeed(app, c.PathParams().Get("subscrid", "-"), userId)
+						if err != nil {
+							return err
+						}
 					default:
 						return errors.New("Unknown subscrmethod:" + c.PathParams().Get("subscrmethod", "-"))
 					}

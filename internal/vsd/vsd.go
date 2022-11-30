@@ -142,8 +142,28 @@ func UnsubscrFeed(app core.App, feedId, userId string) error {
 	return app.Dao().DeleteRecord(records[0])
 }
 
-func Feeds(app core.App) (*search.Result, error) {
-	return pbapi.RecordList(app, "feed", "", "domain_id")
+func NotUserFeeds(app core.App, userId string) (*search.Result, error) {
+
+	expr1 := dbx.HashExp{"user_id": userId}
+	feedIds := make([]string, 0)
+	if records, err := app.Dao().FindRecordsByExpr("usr_feed", expr1); err == nil {
+		for _, rec := range records {
+			feedIds = append(feedIds, rec.GetString("feed_id"))
+		}
+	}
+	if len(feedIds) == 0 {
+		return pbapi.RecordList(app, "feed", "sort=-pub_date", "domain_id")
+	}
+	query := ""
+	for i, feedId := range feedIds {
+		if i != 0 {
+			query += " && "
+		}
+		query += fmt.Sprintf(`id!="%s"`, feedId)
+	}
+	filter := "sort=-pub_date&filter=" + url.QueryEscape(query)
+	//log.Println("NotUserFeeds", query)
+	return pbapi.RecordList(app, "feed", filter, "domain_id")
 }
 
 func UsrFeeds(app core.App, userId string) (*search.Result, error) {
