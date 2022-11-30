@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -69,7 +70,11 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/newfeed",
 			Handler: func(c echo.Context) error {
-				result, err := vsd.Feeds(app)
+				userId := ""
+				if authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record); ok {
+					userId = authRecord.GetId()
+				}
+				result, err := vsd.NotUserFeeds(app, userId)
 				if err != nil {
 					c.Set("err", err.Error())
 				}
@@ -138,6 +143,7 @@ func main() {
 				apis.RequireAdminOrRecordAuth(),
 			},
 		})
+
 		e.Router.AddRoute(echo.Route{
 			Method: http.MethodPost,
 			Path:   "/feed/:feedid",
@@ -149,6 +155,42 @@ func main() {
 					return c.HTML(http.StatusInternalServerError, err.Error())
 				}
 				return c.HTML(http.StatusOK, "ok")
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrRecordAuth(),
+			},
+		})
+
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "/subscriptions/:subscrtype/:subscrmethod/:subscrid",
+			Handler: func(c echo.Context) error {
+				//log.Print(c.PathParams().Get("subscrtype", "-"), c.PathParams().Get("subscrmethod", "-"))
+				userId := ""
+				authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record)
+				if ok {
+					userId = authRecord.GetId()
+				}
+				switch c.PathParams().Get("subscrtype", "-") {
+				case "feed":
+					switch c.PathParams().Get("subscrmethod", "-") {
+					case "subscribe":
+						err := vsd.SubscrFeed(app, c.PathParams().Get("subscrid", "-"), userId)
+						if err != nil {
+							return err
+						}
+					case "unsubscribe":
+						err := vsd.UnsubscrFeed(app, c.PathParams().Get("subscrid", "-"), userId)
+						if err != nil {
+							return err
+						}
+					default:
+						return errors.New("Unknown subscrmethod:" + c.PathParams().Get("subscrmethod", "-"))
+					}
+				default:
+					return errors.New("Unknown subscrtype:" + c.PathParams().Get("subscrtype", "-"))
+				}
+				return c.Redirect(http.StatusTemporaryRedirect, "/")
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireAdminOrRecordAuth(),
@@ -175,7 +217,7 @@ func main() {
 				cookie.Expires = time.Now().Add(400 * 24 * time.Hour)
 				c.SetCookie(cookie)
 
-				return c.Redirect(307, "/")
+				return c.Redirect(http.StatusTemporaryRedirect, "/")
 			},
 			Middlewares: []echo.MiddlewareFunc{
 				apis.RequireGuestOnly(),

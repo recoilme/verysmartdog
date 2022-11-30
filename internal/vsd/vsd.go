@@ -12,10 +12,12 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/katera/og"
 	"github.com/mmcdole/gofeed"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
+	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/search"
 	"github.com/pocketbase/pocketbase/tools/security"
 	"github.com/recoilme/verysmartdog/pkg/pbapi"
@@ -109,19 +111,59 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 	}
 	_ = feed
 	// usr_feed
-	requestData = map[string]any{}
-	requestData["user_id"] = userId
-	requestData["feed_id"] = feed.GetId()
-	_, err = pbapi.RecordCreate(app, "usr_feed", nil, requestData)
-	if err != nil {
-		return nil, err
-	}
-	go FeedUpd(app, feed.GetId())
-	return nil, nil
+	err = SubscrFeed(app, feed.GetId(), userId)
+	return nil, err
 }
 
-func Feeds(app core.App) (*search.Result, error) {
-	return pbapi.RecordList(app, "feed", "", "domain_id")
+func SubscrFeed(app core.App, feedId, userId string) error {
+	// usr_feed
+	requestData := map[string]any{}
+	requestData["user_id"] = userId
+	requestData["feed_id"] = feedId
+	_, err := pbapi.RecordCreate(app, "usr_feed", nil, requestData)
+	if err != nil {
+		return err
+	}
+	go FeedUpd(app, feedId)
+	return nil
+}
+
+func UnsubscrFeed(app core.App, feedId, userId string) error {
+	expr1 := dbx.HashExp{"user_id": userId}
+	expr2 := dbx.HashExp{"feed_id": feedId}
+	records, err := app.Dao().FindRecordsByExpr("usr_feed", expr1, expr2)
+	if err != nil {
+		return err
+	}
+	if len(records) == 0 {
+		log.Println("UnsubscrFeed", "records not found", feedId, userId)
+		return nil
+	}
+	return app.Dao().DeleteRecord(records[0])
+}
+
+func NotUserFeeds(app core.App, userId string) (*search.Result, error) {
+
+	expr1 := dbx.HashExp{"user_id": userId}
+	feedIds := make([]string, 0)
+	if records, err := app.Dao().FindRecordsByExpr("usr_feed", expr1); err == nil {
+		for _, rec := range records {
+			feedIds = append(feedIds, rec.GetString("feed_id"))
+		}
+	}
+	if len(feedIds) == 0 {
+		return pbapi.RecordList(app, "feed", "sort=-pub_date", "domain_id")
+	}
+	query := ""
+	for i, feedId := range feedIds {
+		if i != 0 {
+			query += " && "
+		}
+		query += fmt.Sprintf(`id!="%s"`, feedId)
+	}
+	filter := "sort=-pub_date&filter=" + url.QueryEscape(query)
+	//log.Println("NotUserFeeds", query)
+	return pbapi.RecordList(app, "feed", filter, "domain_id")
 }
 
 func UsrFeeds(app core.App, userId string) (*search.Result, error) {
@@ -165,9 +207,30 @@ func FeedUpd(app core.App, feedId string) error {
 	}
 	feed.Set("last_fetch", time.Now())
 	feed.Set("last_error", "")
-	feed.Set("pub_date", fetchedFeed.UpdatedParsed)
+	if fetchedFeed.PublishedParsed != nil {
+		feed.Set("pub_date", fetchedFeed.PublishedParsed)
+	}
+	if fetchedFeed.UpdatedParsed != nil {
+		feed.Set("pub_date", fetchedFeed.UpdatedParsed)
+	}
 	app.Dao().SaveRecord(feed)
+
+	collectionPost, err := app.Dao().FindCollectionByNameOrId("post")
+	if err != nil {
+		return err
+	}
+
 	for _, rssItem := range fetchedFeed.Items {
+		//log.Println("link", rssItem.Link)
+		row := dbx.NullStringMap{}
+		err = app.Dao().RecordQuery(collectionPost).
+			AndWhere(dbx.HashExp{inflector.Columnify("url"): rssItem.Link}).
+			Limit(1).
+			One(row)
+		if err == nil {
+			//log.Println("Skiped url:", rssItem.Link)
+			continue
+		}
 		title, err := goquery.NewDocumentFromReader(strings.NewReader(rssItem.Title))
 		if err != nil {
 			return err
