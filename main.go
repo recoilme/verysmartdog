@@ -56,7 +56,16 @@ func main() {
 			Handler: func(c echo.Context) error {
 				//migrations.CreateSheme()
 				usrFeeds(c, app)
-				c.Set("err", "In development")
+				userId := ""
+				if authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record); ok {
+					userId = authRecord.GetId()
+				}
+				result, err := vsd.AllPosts(app, userId)
+				if err != nil {
+					c.Set("err", err.Error())
+				}
+				c.Set("posts", toJson(result)["items"])
+				//c.Set("err", "In development")
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{

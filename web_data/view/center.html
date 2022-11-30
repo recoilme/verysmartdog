@@ -1,6 +1,7 @@
 {{define "center"}}
  <!-- Content -->
  <div class="w-full md:bg-blue-500 md:text-slate-100  pt-10 px-4 sm:px-6 md:px-8 lg:pl-72">
+  {{if eq .path "/feed"}}
   <!-- Tab -->
   <div class="border-b-2 border-gray-200 dark:border-gray-700 mb-4">
     <nav class="-mb-0.5 flex space-x-6">
@@ -15,6 +16,7 @@
       </a>
     </nav>
   </div>
+  {{end}}
   <!-- Page Heading -->
   {{if .err }}
     <header class="mt-2 w-full">
@@ -79,6 +81,25 @@
     </div>
   </div>
 
+  {{end}}
+  {{if eq .path "/"}}
+  <div class="flex">
+    <div class="flex-auto">
+      {{range .posts}}
+      <a href="{{.url}}">
+      <div class=" hover:shadow-lg mb-4 flex flex-col bg-white border shadow-sm rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]">
+        <div class="p-4 md:p-7">
+          <h3 class="text-lg font-bold text-gray-800 dark:text-white">{{.title}}</h3>
+          <p class="mt-2 text-gray-800 dark:text-gray-400">{{.descr}}</p>
+          <p class="mt-3 text-xs text-gray-500 dark:text-gray-500">
+            {{slice .pub_date 5 16}} {{.category}}
+          </p>
+        </div>
+      </div>
+      </a>
+      {{end}}
+  </div>
+  </div>
   {{end}}
   <!-- ========== END MAIN CONTENT ========== -->
   <div id='sidebar-backdrop' class='hidden transition duration fixed inset-0 z-[47] bg-gray-900 bg-opacity-50 dark:bg-opacity-80'></div>

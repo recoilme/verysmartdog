@@ -170,6 +170,35 @@ func UsrFeeds(app core.App, userId string) (*search.Result, error) {
 	return pbapi.RecordList(app, "usr_feed", fmt.Sprintf("filter=(user_id='%s')", userId), "feed_id,feed_id.domain_id")
 }
 
+func AllPosts(app core.App, userId string) (*search.Result, error) {
+	td := time.Now().UTC().Add(-24 * time.Hour)
+	tm := time.Now().UTC()
+	query := fmt.Sprintf(`pub_date>="%s" && pub_date<="%s" && (`,
+		td.Format("2006-01-02"), tm.Format("2006-01-02"))
+	//log.Println(query)
+
+	expr1 := dbx.HashExp{"user_id": userId}
+	feedIds := make([]string, 0)
+	if records, err := app.Dao().FindRecordsByExpr("usr_feed", expr1); err == nil {
+		for _, rec := range records {
+			feedIds = append(feedIds, rec.GetString("feed_id"))
+		}
+	}
+	if len(feedIds) == 0 {
+		return nil, errors.New("")
+	}
+	for i, feedId := range feedIds {
+		if i != 0 {
+			query += " || "
+		}
+		query += fmt.Sprintf(`feed_id="%s"`, feedId)
+	}
+	query += ")"
+	log.Println("AllPosts", query)
+	filter := "sort=-pub_date&filter=" + url.QueryEscape(query)
+	return pbapi.RecordList(app, "post", filter, "feed_id")
+}
+
 func Posts(app core.App, feedId, period string) (*search.Result, error) {
 	td := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.UTC)
 	tm := td.Add(24 * time.Hour)
