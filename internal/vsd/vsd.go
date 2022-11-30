@@ -195,7 +195,7 @@ func AllPosts(app core.App, userId string) (*search.Result, error) {
 	query += ")"
 	log.Println("AllPosts", query)
 	filter := "sort=-pub_date&perPage=100&filter=" + url.QueryEscape(query)
-	return pbapi.RecordList(app, "post", filter, "feed_id")
+	return pbapi.RecordList(app, "post", filter, "feed_id,feed_id.domain_id")
 }
 
 func Posts(app core.App, feedId, period string) (*search.Result, error) {

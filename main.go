@@ -10,10 +10,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -31,6 +33,16 @@ type TemplateRegistry struct {
 	templates *template.Template
 }
 
+var funcMap = template.FuncMap{
+	"reltime": func(x string) string {
+		t, err := time.Parse("2006-01-02 15:04:05.000Z", x)
+		if err != nil {
+			return x + " err:" + err.Error()
+		}
+		return humanize.RelTime(t, time.Now().UTC(), "ago", "later")
+	},
+}
+
 func main() {
 	botkey, err := os.ReadFile("tgbot")
 	if err != nil {
@@ -43,8 +55,10 @@ func main() {
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 
 		e.Router.Pre(customAuthMiddleware(app))
+
+		filenames, _ := filepath.Glob("web_data/view/*.html")
 		e.Router.Renderer = &TemplateRegistry{
-			templates: template.Must(template.ParseGlob("web_data/view/*.html")),
+			templates: template.Must(template.New("main.html").Funcs(funcMap).ParseFiles(filenames...)),
 		}
 		e.Router.Static("/css", "web_data/css")
 		e.Router.Static("/js", "web_data/js")
@@ -54,7 +68,6 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/",
 			Handler: func(c echo.Context) error {
-				//migrations.CreateSheme()
 				usrFeeds(c, app)
 				userId := ""
 				if authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record); ok {
