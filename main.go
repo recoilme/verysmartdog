@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,12 @@ type TemplateRegistry struct {
 }
 
 func main() {
+	botkey, err := os.ReadFile("tgbot")
+	if err != nil {
+		log.Fatal(err)
+	}
+	botkeys := string(bytes.TrimSpace(botkey))
+
 	app := pocketbase.New()
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
@@ -201,7 +208,7 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/auth_tg_signup",
 			Handler: func(c echo.Context) error {
-				authRecord, err := vsd.AuthTgSignup(app.Dao(), c.Request().URL.RawQuery)
+				authRecord, err := vsd.AuthTgSignup(app.Dao(), c.Request().URL.RawQuery, botkeys)
 				if err != nil {
 					log.Println("Failed to auth", err)
 					return apis.NewBadRequestError("Failed to auth", err)
