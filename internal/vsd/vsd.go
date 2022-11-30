@@ -289,13 +289,13 @@ func FeedUpd(app core.App, feedId string) error {
 	return nil
 }
 
-func AuthTgSignup(dao *daos.Dao, queryParams string) (*models.Record, error) {
+func AuthTgSignup(dao *daos.Dao, queryParams, botkeys string) (*models.Record, error) {
 
 	params, paramsErr := url.ParseQuery(queryParams)
 	if paramsErr != nil {
 		return nil, apis.NewBadRequestError("Failed to create user token, bad params", paramsErr)
 	}
-	uData, tgwErr := telegramwidget.ConvertAndVerifyForm(params, string("5537821699:AAFTg_0meVPkMrD-qY8kLSPkH6cXVaXcj1w"))
+	uData, tgwErr := telegramwidget.ConvertAndVerifyForm(params, botkeys)
 	if tgwErr != nil {
 		return nil, apis.NewBadRequestError("Failed to verify user token", tgwErr)
 	}
