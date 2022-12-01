@@ -22,6 +22,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tokens"
+	"github.com/recoilme/verysmartdog/internal/pagination"
 	"github.com/recoilme/verysmartdog/internal/vsd"
 	_ "github.com/recoilme/verysmartdog/migrations"
 	"github.com/recoilme/verysmartdog/pkg/pbapi"
@@ -73,10 +74,12 @@ func main() {
 				if authRecord, ok := c.Get(apis.ContextAuthRecordKey).(*models.Record); ok {
 					userId = authRecord.GetId()
 				}
-				result, err := vsd.AllPosts(app, userId)
+
+				result, err := vsd.AllPosts(app, userId, c.QueryParam("page"))
 				if err != nil {
 					c.Set("err", err.Error())
 				}
+				c.Set("pagination", pagination.New(result.TotalItems, result.PerPage, result.Page))
 				c.Set("posts", toJson(result)["items"])
 				//c.Set("err", "In development")
 				return c.Render(http.StatusOK, "main.html", siteData(c))
@@ -315,7 +318,7 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	siteData["userId"] = authRecord.GetId()
 	feedId := c.PathParams().Get("feedid", "-")
 	if feedId == "-" {
-		siteData["path"] = c.Request().URL.String()
+		siteData["path"] = "/" //c.Request().URL.String()
 		siteData["feedid"] = ""
 	} else {
 		siteData["path"] = "/feed"
@@ -327,7 +330,7 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	siteData["err"] = c.Get("err")
 	siteData["usr_feeds"] = c.Get("usr_feeds")
 	siteData["posts"] = c.Get("posts")
-
+	siteData["pagination"] = c.Get("pagination")
 	//log.Println(fmt.Sprintf("siteData:%+v", siteData))
 
 	return siteData
@@ -348,10 +351,11 @@ func posts(c echo.Context, app *pocketbase.PocketBase) {
 	feedId := c.PathParams().Get("feedid", "-")
 	period := c.PathParams().Get("period", "-")
 	if feedId != "-" {
-		result, err := vsd.Posts(app, feedId, period)
+		result, err := vsd.Posts(app, feedId, period, c.QueryParam("page"))
 		if err != nil {
 			c.Set("err", err.Error())
 		}
+		c.Set("pagination", pagination.New(result.TotalItems, result.PerPage, result.Page))
 		c.Set("posts", toJson(result)["items"])
 	}
 }

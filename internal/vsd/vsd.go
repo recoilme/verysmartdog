@@ -170,7 +170,7 @@ func UsrFeeds(app core.App, userId string) (*search.Result, error) {
 	return pbapi.RecordList(app, "usr_feed", fmt.Sprintf("filter=(user_id='%s')", userId), "feed_id,feed_id.domain_id")
 }
 
-func AllPosts(app core.App, userId string) (*search.Result, error) {
+func AllPosts(app core.App, userId, page string) (*search.Result, error) {
 	td := time.Now().UTC().Add(-24 * time.Hour)
 	query := fmt.Sprintf(`pub_date>="%s" && (`,
 		td.Format("2006-01-02 15:04:05"))
@@ -193,12 +193,16 @@ func AllPosts(app core.App, userId string) (*search.Result, error) {
 		query += fmt.Sprintf(`feed_id="%s"`, feedId)
 	}
 	query += ")"
-	log.Println("AllPosts", query)
-	filter := "sort=-pub_date&perPage=100&filter=" + url.QueryEscape(query)
+	filter := ""
+	if page != "" {
+		filter += "page=" + page + "&"
+	}
+	//log.Println("filter", filter)
+	filter += "sort=-pub_date&filter=" + url.QueryEscape(query)
 	return pbapi.RecordList(app, "post", filter, "feed_id,feed_id.domain_id")
 }
 
-func Posts(app core.App, feedId, period string) (*search.Result, error) {
+func Posts(app core.App, feedId, period, page string) (*search.Result, error) {
 	td := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.UTC)
 	tm := td.Add(24 * time.Hour)
 	switch period {
@@ -206,13 +210,17 @@ func Posts(app core.App, feedId, period string) (*search.Result, error) {
 		td = td.Add(-24 * time.Hour)
 		tm = tm.Add(-24 * time.Hour)
 	case "week":
-		td = td.Add(-24 * 7 * time.Hour)
+		td = td.Add(-24 * 9 * time.Hour)
+		tm = tm.Add(-24 * 2 * time.Hour)
 	}
 	query := fmt.Sprintf(`pub_date>="%s" && pub_date<"%s" && feed_id="%s"`,
 		td.Format("2006-01-02"), tm.Format("2006-01-02"), feedId)
 	//log.Println(query)
-
-	filter := "sort=-pub_date&perPage=100&filter=" + url.QueryEscape(query)
+	filter := ""
+	if page != "" {
+		filter += "page=" + page + "&"
+	}
+	filter += "sort=-pub_date&filter=" + url.QueryEscape(query)
 	return pbapi.RecordList(app, "post", filter, "feed_id")
 }
 
