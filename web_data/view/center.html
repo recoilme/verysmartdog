@@ -98,9 +98,38 @@
       </div>
       </a>
       {{end}}
-  </div>
+    </div>
+    <div class="hidden lg:block w-80">
+      <!-- Right Page 
+      <div class="p-4 ml-4 md:p-7 flex-auto text-sm text-gray-800 dark:text-gray-400 flex flex-col border  rounded-xl">
+      <span class="p-1">Apps</span><span class="p-1">Erika Brodnock, Johannes Lenhard</span>
+      <span class="p-1">управление_разработкой управление_разработкой</span>
+      </div>
+       -->
+    </div>
   </div>
   {{end}}
+
+  {{ if .pagination.Show }}
+  <nav class="flex items-center space-x-2">
+    <a class="text-gray-400 hover:text-blue-600 p-4 inline-flex items-center gap-2 rounded-md {{if .pagination.IsFirstPage}}pointer-events-none {{end}}" href="?page={{.pagination.PreviousPage}}">
+      <span aria-hidden="true">«</span>
+      <span>Previous</span>
+    </a>
+    {{ range $page := .pagination.PagesStream }}
+      {{if $.pagination.IsCurrentPage $page}}
+        <a class="w-10 h-10 bg-blue-500 text-white p-4 inline-flex items-center text-sm font-medium rounded-full" href="?page={{$page}}" aria-current="page">{{$page}}</a>
+      {{else}}
+      <a class="w-10 h-10 text-gray-500 hover:text-blue-600 p-4 inline-flex items-center text-sm font-medium rounded-full" href="?page={{$page}}">{{$page}}</a>
+      {{end}}
+    {{end}}
+    <a class="text-gray-500 hover:text-blue-600 p-4 inline-flex items-center gap-2 rounded-md {{if .pagination.IsLastPage}}pointer-events-none {{end}}" href="?page={{.pagination.NextPage}}">
+      <span>Next</span>
+      <span aria-hidden="true">»</span>
+    </a>
+  </nav>
+  {{end}}
+  
   <!-- ========== END MAIN CONTENT ========== -->
   <div id='sidebar-backdrop' class='hidden transition duration fixed inset-0 z-[47] bg-gray-900 bg-opacity-50 dark:bg-opacity-80'></div>
 
