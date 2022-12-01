@@ -77,11 +77,13 @@ func main() {
 
 				result, err := vsd.AllPosts(app, userId, c.QueryParam("page"))
 				if err != nil {
-					c.Set("err", err.Error())
+					log.Println("main", err.Error())
+					c.Set("err", " ")
+					c.Set("pagination", pagination.New(0, 0, 0))
+				} else {
+					c.Set("pagination", pagination.New(result.TotalItems, result.PerPage, result.Page))
 				}
-				c.Set("pagination", pagination.New(result.TotalItems, result.PerPage, result.Page))
 				c.Set("posts", toJson(result)["items"])
-				//c.Set("err", "In development")
 				return c.Render(http.StatusOK, "main.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
