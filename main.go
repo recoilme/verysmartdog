@@ -235,7 +235,7 @@ func main() {
 			Method: http.MethodGet,
 			Path:   "/auth_tg_signup",
 			Handler: func(c echo.Context) error {
-				authRecord, err := vsd.AuthTgSignup(app.Dao(), c.Request().URL.RawQuery, botkeys)
+				authRecord, err := vsd.AuthTgSignup(app, c.Request().URL.RawQuery, botkeys)
 				if err != nil {
 					log.Println("Failed to auth", err)
 					return apis.NewBadRequestError("Failed to auth", err)
@@ -250,7 +250,7 @@ func main() {
 				cookie.Value = token
 				cookie.Expires = time.Now().Add(400 * 24 * time.Hour)
 				c.SetCookie(cookie)
-
+				time.Sleep(100 * time.Millisecond) //??? wait for header ???
 				return c.Redirect(http.StatusTemporaryRedirect, "/")
 			},
 			Middlewares: []echo.MiddlewareFunc{
@@ -325,6 +325,9 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	} else {
 		siteData["path"] = "/feed"
 		siteData["feedid"] = feedId
+	}
+	if c.Request().URL.String() == "/newfeed" {
+		siteData["path"] = "/newfeed"
 	}
 	siteData["period"] = c.PathParams().Get("period", "-")
 	siteData["domainname"] = c.PathParams().Get("domainname", "-")
