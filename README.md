@@ -4,12 +4,18 @@
 
 - go 1.19
 - go run main.go serve
-- run socat (redirect 8080 -> 80) `socat TCP-LISTEN:80,fork TCP:127.0.0.1:8090` (needed for auth via telegram locally)
-- remove cookie for 127.0.0.1 (if not first run)
 - admin ui: http://127.0.0.1/_/
 - user ui: http://127.0.0.1
-- development - use live reload with air (https://github.com/cosmtrek/air): just run air
+
+## Development
+
+- run socat (redirect 8080 -> 80) `socat TCP-LISTEN:80,fork TCP:127.0.0.1:8090` (needed for auth via telegram locally)
+- remove cookie for 127.0.0.1 (if not first run)
+- use live reload with air (https://github.com/cosmtrek/air): just run air
 - dump db: `sqlite3 pb_data/data.db .dump > data.sql`
+- dev bot: data-telegram-login="artemiyrobot"
+- prod bot verysmartdogbot
+- bot api key place in tgbot file
 
 ## UI
 

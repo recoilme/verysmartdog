@@ -15,7 +15,6 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/search"
@@ -34,13 +33,12 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 	}
 
 	// domain
-	requestData := map[string]any{}
 	domain, err := app.Dao().FindFirstRecordByData("domain", "url", domainUrl)
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			// add domain
-			requestData = map[string]any{}
+			requestData := map[string]any{}
 			requestData["url"] = domainUrl
 			requestData["hostname"] = hostname
 			domInfo, err := og.GetOpenGraphFromUrl(domainUrl)
@@ -89,7 +87,7 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 				domain.Set("icon", fetchedFeed.Image.URL)
 				app.Dao().SaveRecord(domain)
 			}
-			requestData = map[string]any{}
+			requestData := map[string]any{}
 			requestData["domain_id"] = domain.GetId()
 			requestData["url"] = link
 			requestData["title"] = fetchedFeed.Title
@@ -325,7 +323,7 @@ func FeedUpd(app core.App, feedId string) error {
 	return nil
 }
 
-func AuthTgSignup(dao *daos.Dao, queryParams, botkeys string) (*models.Record, error) {
+func AuthTgSignup(app core.App, queryParams, botkeys string) (*models.Record, error) {
 
 	params, paramsErr := url.ParseQuery(queryParams)
 	if paramsErr != nil {
@@ -336,31 +334,46 @@ func AuthTgSignup(dao *daos.Dao, queryParams, botkeys string) (*models.Record, e
 		return nil, apis.NewBadRequestError("Failed to verify user token", tgwErr)
 	}
 	email := fmt.Sprintf("%d@t.me", uData.ID)
-	authRecord, authRecordErr := dao.FindAuthRecordByEmail("users", email)
+	authRecord, authRecordErr := app.Dao().FindAuthRecordByEmail("users", email)
 	if authRecordErr != nil {
 		// not found user
-		saveErr := dao.RunInTransaction(func(txDao *daos.Dao) error {
-
-			collection, err := dao.FindCollectionByNameOrId("users")
-			if err != nil {
-				return err
-			}
-			authRecord = models.NewRecord(collection)
-			authRecord.SetEmail(email)
-			authRecord.SetPassword(security.RandomString(30))
-			authRecord.SetUsername(uData.Username)
-			authRecord.Set("photo_url", uData.PhotoURL.String())
-
-			// create the new user
-			if err := txDao.Save(authRecord); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if saveErr != nil {
-			return nil, saveErr
+		requestData := map[string]any{}
+		requestData["email"] = email
+		requestData["username"] = uData.Username
+		pass := security.RandomString(30)
+		requestData["password"] = pass
+		requestData["passwordConfirm"] = pass //passwordConfirm
+		if uData.PhotoURL != nil {
+			requestData["photo_url"] = uData.PhotoURL.String()
+		} else {
+			log.Println("no photo url", uData)
 		}
+		authRecord, authRecordErr = pbapi.RecordCreate(app, "users", &models.Admin{}, requestData)
+
+		/*
+			saveErr := dao.RunInTransaction(func(txDao *daos.Dao) error {
+
+				collection, err := dao.FindCollectionByNameOrId("users")
+				if err != nil {
+					return err
+				}
+				authRecord = models.NewRecord(collection)
+				authRecord.SetEmail(email)
+				authRecord.SetPassword(security.RandomString(30))
+				authRecord.SetUsername(uData.Username)
+				authRecord.Set("photo_url", uData.PhotoURL.String())
+
+				// create the new user
+				if err := txDao.Save(authRecord); err != nil {
+					return err
+				}
+
+				return nil
+			})
+			if saveErr != nil {
+				return nil, saveErr
+			}
+		*/
 	}
-	return authRecord, nil
+	return authRecord, authRecordErr
 }
