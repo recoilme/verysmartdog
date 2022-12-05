@@ -36,9 +36,32 @@
   <!-- CSS HS -->
   <link rel="stylesheet" href="/css/main.min.css">
   <script type="text/javascript" src="/js/theme.js"></script>
+  <style>
+    body{
+      height:100vh;
+      margin: 0;
+      --x: calc(var(--posX, 0) * 1px);
+      --y: calc(var(--posY, 0) * 1px);
+      background-image: 
+        linear-gradient(115deg, rgb(211 255 215), rgb(0 0 0)), 
+        radial-gradient( 90% 100% at calc( 50% + var(--x)) calc( 0% + var(--y)), rgb(200 200 200), rgb(022 000 045)), 
+        radial-gradient(100% 100% at calc( 80% - var(--x)) calc( 0% - var(--y)), rgb(0, 136, 255), rgb(036 000 000)), 
+        radial-gradient(150% 210% at calc(100% + var(--x)) calc( 0% + var(--y)), rgb(020 175 125), rgb(000 010 255)), 
+        radial-gradient(100% 100% at calc(100% - var(--x)) calc(30% - var(--y)), rgb(255, 179, 0), rgb(000 200 255)), 
+        linear-gradient(60deg, rgb(0, 179, 255), rgb(120 086 255));
+      background-blend-mode: overlay, overlay, difference, difference, difference, normal;
+    }
+  </style>
+
 </head>
 
 <body class="bg-slate-900 flex h-full">
+  <script>
+    window.addEventListener("scroll", (e)=>{
+      document.body.style.setProperty('--posY', 
+        (this.scrollY)*(-2));
+    });
+  </script>
     <div class="max-w-[50rem] flex flex-col mx-auto w-full h-full">
       <!-- ========== HEADER ========== -->
       <header class="mb-auto flex flex-wrap sm:justify-start sm:flex-nowrap z-50 w-full text-sm py-4">
