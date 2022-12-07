@@ -275,6 +275,27 @@ func main() {
 			},
 		})
 
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "/search",
+			Handler: func(c echo.Context) error {
+				usrFeeds(c, app)
+				result, err := vsd.PostsSearch(app, c.QueryParam("q"), c.QueryParam("page"))
+				if err != nil {
+					c.Set("err", err.Error())
+					c.Set("pagination", pagination.New(0, 0, 0))
+				} else {
+					c.Set("pagination", pagination.New(result.TotalItems, result.PerPage, result.Page))
+				}
+				c.Set("posts", toJson(result)["items"])
+				//log.Println(toJson(result)["items"])
+				return c.Render(http.StatusOK, "main.html", siteData(c))
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrRecordAuth(),
+			},
+		})
+
 		return nil
 	})
 
@@ -346,6 +367,9 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	if c.Request().URL.String() == "/newfeed" {
 		siteData["path"] = "/newfeed"
 	}
+	if c.Request().URL.String() == "/search" {
+		siteData["path"] = "/search"
+	}
 	siteData["period"] = c.PathParams().Get("period", "-")
 	siteData["domainname"] = c.PathParams().Get("domainname", "-")
 	siteData["feeds"] = c.Get("feeds")
@@ -412,5 +436,4 @@ func feedUpd(app *pocketbase.PocketBase) {
 	} else {
 		fmt.Printf("I don't know how to handle %T\n", sres.Items)
 	}
-	return
 }

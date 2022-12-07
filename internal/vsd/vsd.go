@@ -25,34 +25,41 @@ import (
 	"github.com/wesleym/telegramwidget"
 )
 
+func searchFilter(app core.App, q, table string) (string, error) {
+
+	tokens := nlp.Tokens(true, q)
+	match := fmt.Sprintf("'%s'", strings.Join(tokens, " "))
+	type SearchId struct {
+		Id string `db:"id"`
+	}
+	var searchIds []*SearchId
+	err := app.Dao().DB().NewQuery("SELECT id FROM " + table + " WHERE tokens MATCH " + match + " ORDER BY rank limit 10;").All(&searchIds)
+	if err != nil {
+		return "", err
+	}
+	if len(searchIds) == 0 {
+		return "", errors.New("items not found")
+	}
+	filter := "("
+	for i := range searchIds {
+		if i != 0 {
+			filter += " || "
+		}
+		filter += fmt.Sprintf(`id="%s"`, searchIds[i].Id)
+	}
+	filter += ")"
+	return filter, nil
+}
+
 func FeedNew(app core.App, link, userId string) (*search.Result, error) {
 	link = strings.TrimSpace(link)
 	domainUrl, hostname, err := urls.DomainHostName(link)
 	if err != nil {
-		tokens := nlp.Tokens(true, link)
-		match := fmt.Sprintf("'%s'", strings.Join(tokens, " "))
-		type SearchId struct {
-			Id string `db:"id" json:"id"`
-		}
-		var searchIds []*SearchId
-		err := app.Dao().DB().NewQuery("SELECT id FROM feed_idx WHERE tokens MATCH " + match + " ORDER BY rank limit 10;").All(&searchIds)
+		filter, err := searchFilter(app, link, "feed_idx")
 		if err != nil {
 			return nil, err
 		}
-		//log.Println("searchIds", len(searchIds), match)
-		if len(searchIds) == 0 {
-			return nil, errors.New("items not found")
-		}
-		//log.Println("searchIds", searchIds[len(searchIds)-1])
-		filter := ""
-		for i := range searchIds {
-			if i != 0 {
-				filter += " || "
-			}
-			filter += fmt.Sprintf(`id="%s"`, searchIds[i].Id)
-		}
-		//log.Println("filter", filter)
-		return pbapi.RecordList(app, "feed", "filter=("+url.QueryEscape(filter)+")", "domain_id")
+		return pbapi.RecordList(app, "feed", "filter="+url.QueryEscape(filter)+"", "domain_id")
 	}
 
 	// domain
@@ -391,31 +398,21 @@ func AuthTgSignup(app core.App, queryParams, botkeys string) (*models.Record, er
 			log.Println("no photo url", uData)
 		}
 		authRecord, authRecordErr = pbapi.RecordCreate(app, "users", &models.Admin{}, requestData)
-
-		/*
-			saveErr := dao.RunInTransaction(func(txDao *daos.Dao) error {
-
-				collection, err := dao.FindCollectionByNameOrId("users")
-				if err != nil {
-					return err
-				}
-				authRecord = models.NewRecord(collection)
-				authRecord.SetEmail(email)
-				authRecord.SetPassword(security.RandomString(30))
-				authRecord.SetUsername(uData.Username)
-				authRecord.Set("photo_url", uData.PhotoURL.String())
-
-				// create the new user
-				if err := txDao.Save(authRecord); err != nil {
-					return err
-				}
-
-				return nil
-			})
-			if saveErr != nil {
-				return nil, saveErr
-			}
-		*/
 	}
 	return authRecord, authRecordErr
+}
+
+func PostsSearch(app core.App, q, page string) (*search.Result, error) {
+	filter := ""
+	query, err := searchFilter(app, q, "post_idx")
+	if err != nil {
+		return nil, err
+	}
+	//return pbapi.RecordList(app, "feed", "filter=("+url.QueryEscape(filter)+")", "domain_id")
+	if page != "" {
+		filter += "page=" + page + "&"
+	}
+	//log.Println(query)
+	filter += "filter=" + url.QueryEscape(query)
+	return pbapi.RecordList(app, "post", filter, "feed_id")
 }

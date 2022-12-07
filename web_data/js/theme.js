@@ -80,3 +80,10 @@ window.addEventListener('load', () => {
         })
     })
 })
+
+
+document.getElementById("searchForm").addEventListener('submit', function(e) {
+  e.preventDefault();
+  location.href = '/search/' + encodeURIComponent(this.elements.q.value);
+}, false);
+
