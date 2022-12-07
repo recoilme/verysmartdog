@@ -3,9 +3,12 @@
 ## Build
 
 - go 1.19
-- go run main.go serve
+- CGO_ENABLED=1 go build --tags "fts5" -o vsd
+- ./vsd serve
 - admin ui: http://127.0.0.1/_/
 - user ui: http://127.0.0.1
+
+* CGO_ENABLED: sqlite full text search (https://sqlite.org/fts5.html)
 
 ## Development
 

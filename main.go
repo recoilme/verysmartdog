@@ -77,7 +77,6 @@ func main() {
 
 				result, err := vsd.AllPosts(app, userId, c.QueryParam("page"))
 				if err != nil {
-					log.Println("main", err.Error())
 					c.Set("err", " ")
 					c.Set("pagination", pagination.New(0, 0, 0))
 				} else {
@@ -135,16 +134,34 @@ func main() {
 			Handler: func(c echo.Context) error {
 				link := c.FormValue("link")
 				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-				feeds, err := vsd.FeedNew(app, link, authRecord.GetId())
-				_ = feeds
+				result, err := vsd.FeedNew(app, link, authRecord.GetId())
 				if err != nil {
 					c.Set("err", err.Error())
+					usrFeeds(c, app)
+					return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 				}
+				if result != nil && result.TotalItems == 0 {
+					//log.Println("result == nil || result.Items == 0")
+					c.Set("err", errors.New("Feeds not found:"+link))
+					usrFeeds(c, app)
+					return c.Render(http.StatusOK, "newfeed.html", siteData(c))
+				}
+				//log.Println("result == nil || result.Items == 0", result.TotalItems)
+				bin, err := json.Marshal(result)
+				if err != nil {
+					fmt.Println(err)
+
+				}
+				resultJson := map[string]interface{}{}
+				json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+				//log.Println("feeds", fmt.Sprintf("%+v\n", resultJson["items"]))
+				c.Set("feeds", resultJson["items"])
+
 				usrFeeds(c, app)
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				//apis.RequireAdminOrRecordAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -279,7 +296,7 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
+			//log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
 			tokenC, err := c.Cookie("t")
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {

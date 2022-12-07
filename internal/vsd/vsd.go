@@ -19,17 +19,40 @@ import (
 	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/search"
 	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/recoilme/verysmartdog/pkg/nlp"
 	"github.com/recoilme/verysmartdog/pkg/pbapi"
 	"github.com/recoilme/verysmartdog/pkg/urls"
 	"github.com/wesleym/telegramwidget"
 )
 
-func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
+func FeedNew(app core.App, link, userId string) (*search.Result, error) {
 	link = strings.TrimSpace(link)
 	domainUrl, hostname, err := urls.DomainHostName(link)
 	if err != nil {
-		log.Println("DomainHostName:", err)
-		return nil, errors.New("Err: no hostname in feed url:'" + link + "'")
+		tokens := nlp.Tokens(true, link)
+		match := fmt.Sprintf("'%s'", strings.Join(tokens, " "))
+		type SearchId struct {
+			Id string `db:"id" json:"id"`
+		}
+		var searchIds []*SearchId
+		err := app.Dao().DB().NewQuery("SELECT id FROM feed_idx WHERE tokens MATCH " + match + " ORDER BY rank limit 10;").All(&searchIds)
+		if err != nil {
+			return nil, err
+		}
+		//log.Println("searchIds", len(searchIds), match)
+		if len(searchIds) == 0 {
+			return nil, errors.New("items not found")
+		}
+		//log.Println("searchIds", searchIds[len(searchIds)-1])
+		filter := ""
+		for i := range searchIds {
+			if i != 0 {
+				filter += " || "
+			}
+			filter += fmt.Sprintf(`id="%s"`, searchIds[i].Id)
+		}
+		//log.Println("filter", filter)
+		return pbapi.RecordList(app, "feed", "filter=("+url.QueryEscape(filter)+")", "domain_id")
 	}
 
 	// domain
@@ -47,7 +70,11 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 			}
 			requestData["title"] = domInfo.Title
 			requestData["descr"] = domInfo.Description
-			requestData["lang"] = domInfo.Locale
+			lang := nlp.Lang(domInfo.Title, domInfo.Description)
+			if lang == "" {
+				lang = domInfo.Locale
+			}
+			requestData["lang"] = lang
 			favicon := strings.TrimRight(domainUrl, "/") + "/favicon.ico"
 			if !urls.IsUrlValid(favicon) {
 				if len(domInfo.Images) > 0 {
@@ -60,7 +87,6 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 				}
 			}
 			requestData["icon"] = favicon
-			//requestData["lang"] = domInfo.Locale
 			domain, err = pbapi.RecordCreate(app, "domain", &models.Admin{}, requestData)
 			if err != nil {
 				return nil, err
@@ -87,17 +113,24 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 				domain.Set("icon", fetchedFeed.Image.URL)
 				app.Dao().SaveRecord(domain)
 			}
+
 			requestData := map[string]any{}
 			requestData["domain_id"] = domain.GetId()
 			requestData["url"] = link
 			requestData["title"] = fetchedFeed.Title
 			requestData["descr"] = fetchedFeed.Description
 			requestData["pub_date"] = fetchedFeed.UpdatedParsed
-			requestData["lang"] = fetchedFeed.Language
+			lang := nlp.Lang(fetchedFeed.Title, fetchedFeed.Description)
+			if lang == "" {
+				lang = fetchedFeed.Language
+			}
+			requestData["lang"] = lang
 			if fetchedFeed.Image != nil {
 				requestData["icon"] = fetchedFeed.Image.URL
 			}
-
+			tokens := nlp.Tokens(true, fetchedFeed.Title, fetchedFeed.Description, domain.GetString("hostname"), lang)
+			requestData["tokens"] = strings.Join(tokens, " ")
+			requestData["context"] = ""
 			feed, err = pbapi.RecordCreate(app, "feed", &models.Admin{}, requestData)
 			if err != nil {
 				return nil, err
@@ -223,7 +256,6 @@ func Posts(app core.App, feedId, period, page string) (*search.Result, error) {
 }
 
 func FeedUpd(app core.App, feedId string) error {
-	log.Println("FeedUpd", feedId)
 	feed, err := app.Dao().FindFirstRecordByData("feed", "id", feedId)
 	if err != nil {
 		feed.Set("last_error", err.Error())
@@ -276,12 +308,8 @@ func FeedUpd(app core.App, feedId string) error {
 		requestData["title"] = titleTxt
 		requestData["pub_date"] = rssItem.PublishedParsed
 		requestData["guid"] = rssItem.GUID
-		if len(rssItem.Authors) > 0 {
-			requestData["author"] = rssItem.Authors[0].Name
-		}
-		if len(rssItem.Categories) > 0 {
-			requestData["category"] = rssItem.Categories[0]
-		}
+
+		requestData["descr"] = ""
 		domInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
 		if err != nil {
 			return err
@@ -313,6 +341,20 @@ func FeedUpd(app core.App, feedId string) error {
 			requestData["img"] = rssItem.Image.URL
 		}
 
+		tokens := nlp.Tokens(true, titleTxt, requestData["descr"].(string), requestData["sum_txt"].(string))
+		if len(rssItem.Authors) > 0 {
+			requestData["author"] = strings.Join(nlp.Tokens(false, rssItem.Authors[0].Name), " ")
+			for i := range rssItem.Authors {
+				tokens = append(tokens, nlp.Tokens(true, rssItem.Authors[i].Name)...)
+			}
+		}
+		if len(rssItem.Categories) > 0 {
+			requestData["category"] = strings.Join(nlp.Tokens(false, rssItem.Categories[0]), " ")
+			for i := range rssItem.Categories {
+				tokens = append(tokens, nlp.Tokens(true, rssItem.Categories[i])...)
+			}
+		}
+		requestData["tokens"] = strings.Join(tokens, " ")
 		//log.Println(requestData)
 		_, err = pbapi.RecordCreate(app, "post", &models.Admin{}, requestData)
 		if err != nil {
