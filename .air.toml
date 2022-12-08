@@ -4,8 +4,8 @@ tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  bin = "./vsd serve --debug"
-  cmd = "go build -o ./vsd"
+  bin = "./vsd serve"
+  cmd = 'CGO_ENABLED=1 go build --tags "fts5" -o vsd'
   delay = 500
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []

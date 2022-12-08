@@ -77,7 +77,6 @@ func main() {
 
 				result, err := vsd.AllPosts(app, userId, c.QueryParam("page"))
 				if err != nil {
-					log.Println("main", err.Error())
 					c.Set("err", " ")
 					c.Set("pagination", pagination.New(0, 0, 0))
 				} else {
@@ -135,16 +134,34 @@ func main() {
 			Handler: func(c echo.Context) error {
 				link := c.FormValue("link")
 				authRecord, _ := c.Get(apis.ContextAuthRecordKey).(*models.Record)
-				feeds, err := vsd.FeedNew(app, link, authRecord.GetId())
-				_ = feeds
+				result, err := vsd.FeedNew(app, link, authRecord.GetId())
 				if err != nil {
 					c.Set("err", err.Error())
+					usrFeeds(c, app)
+					return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 				}
+				if result != nil && result.TotalItems == 0 {
+					//log.Println("result == nil || result.Items == 0")
+					c.Set("err", errors.New("Feeds not found:"+link))
+					usrFeeds(c, app)
+					return c.Render(http.StatusOK, "newfeed.html", siteData(c))
+				}
+				//log.Println("result == nil || result.Items == 0", result.TotalItems)
+				bin, err := json.Marshal(result)
+				if err != nil {
+					fmt.Println(err)
+
+				}
+				resultJson := map[string]interface{}{}
+				json.NewDecoder(bytes.NewReader(bin)).Decode(&resultJson)
+				//log.Println("feeds", fmt.Sprintf("%+v\n", resultJson["items"]))
+				c.Set("feeds", resultJson["items"])
+
 				usrFeeds(c, app)
 				return c.Render(http.StatusOK, "newfeed.html", siteData(c))
 			},
 			Middlewares: []echo.MiddlewareFunc{
-				//apis.RequireAdminOrRecordAuth(),
+				apis.RequireAdminOrRecordAuth(),
 			},
 		})
 		e.Router.AddRoute(echo.Route{
@@ -258,6 +275,27 @@ func main() {
 			},
 		})
 
+		e.Router.AddRoute(echo.Route{
+			Method: http.MethodGet,
+			Path:   "/search",
+			Handler: func(c echo.Context) error {
+				usrFeeds(c, app)
+				result, err := vsd.PostsSearch(app, c.QueryParam("q"), c.QueryParam("page"))
+				if err != nil {
+					c.Set("err", err.Error())
+					c.Set("pagination", pagination.New(0, 0, 0))
+				} else {
+					c.Set("pagination", pagination.New(result.TotalItems, result.PerPage, result.Page))
+				}
+				c.Set("posts", toJson(result)["items"])
+				//log.Println(toJson(result)["items"])
+				return c.Render(http.StatusOK, "main.html", siteData(c))
+			},
+			Middlewares: []echo.MiddlewareFunc{
+				apis.RequireAdminOrRecordAuth(),
+			},
+		})
+
 		return nil
 	})
 
@@ -279,7 +317,7 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c 
 func customAuthMiddleware(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
+			//log.Print(fmt.Sprintf("customAuthMiddleware: %+v\n", c.Request().URL.String()))
 			tokenC, err := c.Cookie("t")
 			if err != nil || tokenC == nil {
 				if c.Request().URL.String() == "/" {
@@ -328,6 +366,9 @@ func siteData(c echo.Context) (siteData map[string]interface{}) {
 	}
 	if c.Request().URL.String() == "/newfeed" {
 		siteData["path"] = "/newfeed"
+	}
+	if c.Request().URL.String() == "/search" {
+		siteData["path"] = "/search"
 	}
 	siteData["period"] = c.PathParams().Get("period", "-")
 	siteData["domainname"] = c.PathParams().Get("domainname", "-")
@@ -395,5 +436,4 @@ func feedUpd(app *pocketbase.PocketBase) {
 	} else {
 		fmt.Printf("I don't know how to handle %T\n", sres.Items)
 	}
-	return
 }

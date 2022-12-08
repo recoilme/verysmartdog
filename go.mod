@@ -4,8 +4,10 @@ go 1.19
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
+	github.com/abadojack/whatlanggo v1.0.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/katera/og v0.0.0-20180329065201-c9a49442a031
+	github.com/kljensen/snowball v0.6.0
 	github.com/labstack/echo/v5 v5.0.0-20220201181537-ed2888cfa198
 	github.com/mmcdole/gofeed v1.1.3
 	github.com/pocketbase/dbx v1.7.0

@@ -19,17 +19,47 @@ import (
 	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/search"
 	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/recoilme/verysmartdog/pkg/nlp"
 	"github.com/recoilme/verysmartdog/pkg/pbapi"
 	"github.com/recoilme/verysmartdog/pkg/urls"
 	"github.com/wesleym/telegramwidget"
 )
 
-func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
+func searchFilter(app core.App, q, table string) (string, error) {
+
+	tokens := nlp.Tokens(true, q)
+	match := fmt.Sprintf("'%s'", strings.Join(tokens, " "))
+	type SearchId struct {
+		Id string `db:"id"`
+	}
+	var searchIds []*SearchId
+	err := app.Dao().DB().NewQuery("SELECT id FROM " + table + " WHERE tokens MATCH " + match + " ORDER BY rank limit 30;").All(&searchIds)
+	if err != nil {
+		return "", err
+	}
+	if len(searchIds) == 0 {
+		return "", errors.New("items not found")
+	}
+	filter := "("
+	for i := range searchIds {
+		if i != 0 {
+			filter += " || "
+		}
+		filter += fmt.Sprintf(`id="%s"`, searchIds[i].Id)
+	}
+	filter += ")"
+	return filter, nil
+}
+
+func FeedNew(app core.App, link, userId string) (*search.Result, error) {
 	link = strings.TrimSpace(link)
 	domainUrl, hostname, err := urls.DomainHostName(link)
 	if err != nil {
-		log.Println("DomainHostName:", err)
-		return nil, errors.New("Err: no hostname in feed url:'" + link + "'")
+		filter, err := searchFilter(app, link, "feed_idx")
+		if err != nil {
+			return nil, err
+		}
+		return pbapi.RecordList(app, "feed", "filter="+url.QueryEscape(filter)+"", "domain_id")
 	}
 
 	// domain
@@ -47,7 +77,11 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 			}
 			requestData["title"] = domInfo.Title
 			requestData["descr"] = domInfo.Description
-			requestData["lang"] = domInfo.Locale
+			lang := nlp.Lang(domInfo.Title, domInfo.Description)
+			if lang == "" {
+				lang = domInfo.Locale
+			}
+			requestData["lang"] = lang
 			favicon := strings.TrimRight(domainUrl, "/") + "/favicon.ico"
 			if !urls.IsUrlValid(favicon) {
 				if len(domInfo.Images) > 0 {
@@ -60,7 +94,6 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 				}
 			}
 			requestData["icon"] = favicon
-			//requestData["lang"] = domInfo.Locale
 			domain, err = pbapi.RecordCreate(app, "domain", &models.Admin{}, requestData)
 			if err != nil {
 				return nil, err
@@ -87,17 +120,24 @@ func FeedNew(app core.App, link, userId string) ([]*models.Record, error) {
 				domain.Set("icon", fetchedFeed.Image.URL)
 				app.Dao().SaveRecord(domain)
 			}
+
 			requestData := map[string]any{}
 			requestData["domain_id"] = domain.GetId()
 			requestData["url"] = link
 			requestData["title"] = fetchedFeed.Title
 			requestData["descr"] = fetchedFeed.Description
 			requestData["pub_date"] = fetchedFeed.UpdatedParsed
-			requestData["lang"] = fetchedFeed.Language
+			lang := nlp.Lang(fetchedFeed.Title, fetchedFeed.Description)
+			if lang == "" {
+				lang = fetchedFeed.Language
+			}
+			requestData["lang"] = lang
 			if fetchedFeed.Image != nil {
 				requestData["icon"] = fetchedFeed.Image.URL
 			}
-
+			tokens := nlp.Tokens(true, fetchedFeed.Title, fetchedFeed.Description, domain.GetString("hostname"), lang)
+			requestData["tokens"] = strings.Join(tokens, " ")
+			requestData["context"] = ""
 			feed, err = pbapi.RecordCreate(app, "feed", &models.Admin{}, requestData)
 			if err != nil {
 				return nil, err
@@ -223,7 +263,6 @@ func Posts(app core.App, feedId, period, page string) (*search.Result, error) {
 }
 
 func FeedUpd(app core.App, feedId string) error {
-	log.Println("FeedUpd", feedId)
 	feed, err := app.Dao().FindFirstRecordByData("feed", "id", feedId)
 	if err != nil {
 		feed.Set("last_error", err.Error())
@@ -276,12 +315,8 @@ func FeedUpd(app core.App, feedId string) error {
 		requestData["title"] = titleTxt
 		requestData["pub_date"] = rssItem.PublishedParsed
 		requestData["guid"] = rssItem.GUID
-		if len(rssItem.Authors) > 0 {
-			requestData["author"] = rssItem.Authors[0].Name
-		}
-		if len(rssItem.Categories) > 0 {
-			requestData["category"] = rssItem.Categories[0]
-		}
+
+		requestData["descr"] = ""
 		domInfo, err := og.GetOpenGraphFromUrl(rssItem.Link)
 		if err != nil {
 			return err
@@ -313,6 +348,20 @@ func FeedUpd(app core.App, feedId string) error {
 			requestData["img"] = rssItem.Image.URL
 		}
 
+		tokens := nlp.Tokens(true, titleTxt, requestData["descr"].(string), requestData["sum_txt"].(string))
+		if len(rssItem.Authors) > 0 {
+			requestData["author"] = strings.Join(nlp.Tokens(false, rssItem.Authors[0].Name), " ")
+			for i := range rssItem.Authors {
+				tokens = append(tokens, nlp.Tokens(true, rssItem.Authors[i].Name)...)
+			}
+		}
+		if len(rssItem.Categories) > 0 {
+			requestData["category"] = strings.Join(nlp.Tokens(false, rssItem.Categories[0]), " ")
+			for i := range rssItem.Categories {
+				tokens = append(tokens, nlp.Tokens(true, rssItem.Categories[i])...)
+			}
+		}
+		requestData["tokens"] = strings.Join(tokens, " ")
 		//log.Println(requestData)
 		_, err = pbapi.RecordCreate(app, "post", &models.Admin{}, requestData)
 		if err != nil {
@@ -349,31 +398,19 @@ func AuthTgSignup(app core.App, queryParams, botkeys string) (*models.Record, er
 			log.Println("no photo url", uData)
 		}
 		authRecord, authRecordErr = pbapi.RecordCreate(app, "users", &models.Admin{}, requestData)
-
-		/*
-			saveErr := dao.RunInTransaction(func(txDao *daos.Dao) error {
-
-				collection, err := dao.FindCollectionByNameOrId("users")
-				if err != nil {
-					return err
-				}
-				authRecord = models.NewRecord(collection)
-				authRecord.SetEmail(email)
-				authRecord.SetPassword(security.RandomString(30))
-				authRecord.SetUsername(uData.Username)
-				authRecord.Set("photo_url", uData.PhotoURL.String())
-
-				// create the new user
-				if err := txDao.Save(authRecord); err != nil {
-					return err
-				}
-
-				return nil
-			})
-			if saveErr != nil {
-				return nil, saveErr
-			}
-		*/
 	}
 	return authRecord, authRecordErr
+}
+
+func PostsSearch(app core.App, q, page string) (*search.Result, error) {
+	filter := ""
+	query, err := searchFilter(app, q, "post_idx")
+	if err != nil {
+		return nil, err
+	}
+	if page != "" {
+		filter += "page=" + page + "&"
+	}
+	filter += "sort=-pub_date&filter=" + url.QueryEscape(query)
+	return pbapi.RecordList(app, "post", filter, "feed_id")
 }
