@@ -33,7 +33,7 @@ func searchFilter(app core.App, q, table string) (string, error) {
 		Id string `db:"id"`
 	}
 	var searchIds []*SearchId
-	err := app.Dao().DB().NewQuery("SELECT id FROM " + table + " WHERE tokens MATCH " + match + " ORDER BY rank limit 10;").All(&searchIds)
+	err := app.Dao().DB().NewQuery("SELECT id FROM " + table + " WHERE tokens MATCH " + match + " ORDER BY rank limit 30;").All(&searchIds)
 	if err != nil {
 		return "", err
 	}
@@ -408,11 +408,9 @@ func PostsSearch(app core.App, q, page string) (*search.Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	//return pbapi.RecordList(app, "feed", "filter=("+url.QueryEscape(filter)+")", "domain_id")
 	if page != "" {
 		filter += "page=" + page + "&"
 	}
-	//log.Println(query)
-	filter += "filter=" + url.QueryEscape(query)
+	filter += "sort=-pub_date&filter=" + url.QueryEscape(query)
 	return pbapi.RecordList(app, "post", filter, "feed_id")
 }
